@@ -185,7 +185,9 @@ let player = {
     height: 40,
     speed: 2.5,
     direction: 'front',
-    lastDirection: 'front'
+    lastDirection: 'front',
+    animationFrame: 0,
+    animationSpeed: 8 // Animasyon hızı (düşük = hızlı)
 };
 
 // Mouse durumu
@@ -224,7 +226,7 @@ const imageNames = [
     'character_front_1', 'character_front_2',
     'character_back_1', 'character_back_2',
     'character_left', 'character_left_2',
-    'character_right', 'character_right_2'
+    'character_right_1', 'character_right_2'
 ];
 
 // Görselleri yükle
@@ -360,6 +362,10 @@ function gameLoop() {
     // Oyun zamanını güncelle
     gameState.gameTime += deltaTime;
     
+    // Animasyon frame'ini güncelle
+    animationFrame++;
+    player.animationFrame++;
+    
     updatePlayer();
     updateBullets();
     updateEnemies();
@@ -390,7 +396,7 @@ function updatePlayer() {
             player.y += moveY;
             moving = true;
             
-            // Yön belirleme
+            // Yön belirleme - mouse hareketine göre
             if (Math.abs(dx) > Math.abs(dy)) {
                 newDirection = dx > 0 ? 'right' : 'left';
             } else {
@@ -399,7 +405,18 @@ function updatePlayer() {
         }
     }
     
-    if (moving) {
+    // WASD tuşlarına basıldığında yön değiştir (ateş için)
+    if (keys['KeyW']) {
+        newDirection = 'back'; // Yukarı
+    } else if (keys['KeyS']) {
+        newDirection = 'front'; // Aşağı
+    } else if (keys['KeyA']) {
+        newDirection = 'left'; // Sol
+    } else if (keys['KeyD']) {
+        newDirection = 'right'; // Sağ
+    }
+    
+    if (moving || keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD']) {
         player.direction = newDirection;
         player.lastDirection = newDirection;
     }
@@ -833,18 +850,50 @@ function draw() {
 function drawPlayer() {
     let imageName = player.direction + '_1';
     
-    // Animasyon için frame değiştir
-    if (keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD']) {
-        imageName = player.direction + '_' + (Math.floor(animationFrame / 10) % 2 + 1);
+    // Animasyon için frame değiştir - hareket halindeyken veya tuşa basıldığında
+    const isMoving = mouse.isMoving || keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'];
+    
+    if (isMoving) {
+        // Animasyon frame'ini kullanarak 1 ve 2 arasında geçiş yap
+        const frameNumber = Math.floor(player.animationFrame / player.animationSpeed) % 2 + 1;
+        imageName = player.direction + '_' + frameNumber;
+    }
+    
+    // Sol yön için özel kontrol (character_left.png dosyası _1 ekini içermiyor)
+    if (player.direction === 'left' && !isMoving) {
+        imageName = 'character_left'; // Durağan hali için
+    } else if (player.direction === 'left' && isMoving) {
+        const frameNumber = Math.floor(player.animationFrame / player.animationSpeed) % 2;
+        imageName = frameNumber === 0 ? 'character_left' : 'character_left_2';
+    }
+    
+    // Sağ yön için normal kontrol
+    if (player.direction === 'right') {
+        const frameNumber = Math.floor(player.animationFrame / player.animationSpeed) % 2 + 1;
+        imageName = isMoving ? 'character_right_' + frameNumber : 'character_right_1';
     }
     
     const img = characterImages[imageName];
     if (img && img.complete) {
         ctx.drawImage(img, player.x, player.y, player.width, player.height);
     } else {
-        // Yedek çizim
+        // Yedek çizim - yön gösterici ile
         ctx.fillStyle = '#00ff00';
         ctx.fillRect(player.x, player.y, player.width, player.height);
+        
+        // Yön göstergesi
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        const directionSymbols = {
+            'front': '↓',
+            'back': '↑', 
+            'left': '←',
+            'right': '→'
+        };
+        ctx.fillText(directionSymbols[player.direction] || '?', 
+                    player.x + player.width/2, 
+                    player.y + player.height/2 + 4);
     }
 }
 
@@ -1087,6 +1136,7 @@ function restartGame() {
     player.y = canvas.height / 2;
     player.direction = 'front';
     player.lastDirection = 'front';
+    player.animationFrame = 0;
     
     bullets = [];
     enemies = [];
