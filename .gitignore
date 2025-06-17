@@ -1,0 +1,28 @@
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE dosyaları
+.vscode/
+.idea/
+*.sublime-*
+
+# Log dosyaları
+*.log
+
+# Geçici dosyalar
+*.tmp
+*.temp
+*~
+
+# Node.js (eğer gelecekte kullanılırsa)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Backup dosyaları
+*.bak
+*.backup
+*~ 

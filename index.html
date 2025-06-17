@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coder X - Hata Avcısı</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0f0f23, #1a1a2e);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        #gameCanvas {
+            display: block;
+            background: #000011;
+            cursor: none; /* Custom cursor için gizle */
+        }
+        
+        .custom-cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        
+        .custom-cursor::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: #00ff00;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #00ff00;
+        }
+
+        .score {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .health {
+            font-size: 16px;
+            color: #ff4444;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #00ff00;
+            font-size: 12px;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #ff4444;
+            text-align: center;
+            display: none;
+        }
+
+        .game-over h2 {
+            color: #ff4444;
+            margin-top: 0;
+        }
+
+        .restart-btn {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .restart-btn:hover {
+            background: #00cc00;
+        }
+
+        .upgrade-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #00ff00;
+            text-align: center;
+            display: none;
+            min-width: 400px;
+        }
+
+        .upgrade-menu h2 {
+            color: #00ff00;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .upgrade-info {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .upgrade-options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .upgrade-btn {
+            background: rgba(0, 255, 0, 0.1);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 8px;
+            min-width: 150px;
+            transition: all 0.3s ease;
+        }
+
+        .upgrade-btn:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .upgrade-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .upgrade-desc {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .category-selection {
+            margin-bottom: 20px;
+        }
+
+        .category-grid {
+            display: flex;
+            gap: 10px;
+        }
+
+        .category-btn {
+            background: rgba(0, 0, 0, 0.5);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 5px;
+            min-width: 100px;
+            transition: all 0.3s ease;
+        }
+
+        .category-btn:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .category-icon {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .category-name {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .category-desc {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .upgrade-selection {
+            margin-top: 20px;
+        }
+
+        .back-btn {
+            background: rgba(0, 0, 0, 0.5);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px 20px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .upgrade-grid {
+            display: flex;
+            gap: 10px;
+        }
+
+        .upgrade-item {
+            background: rgba(0, 0, 0, 0.5);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 5px;
+            min-width: 100px;
+            transition: all 0.3s ease;
+        }
+
+        .upgrade-item:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .selected-upgrade {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="custom-cursor" id="customCursor"></div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="score">Skor: <span id="score">0</span></div>
+            <div class="health">Can: <span id="health">100</span></div>
+            <div class="level" style="font-size: 16px; color: #00ff00;">Seviye: <span id="level">1</span></div>
+            <div class="next-level" style="font-size: 12px; color: #ffff00;">Sonraki: <span id="nextLevel">100</span></div>
+        </div>
+
+        <div class="controls">
+            <div>MOUSE: Hareket</div>
+            <div>W/SPACE/CLICK: Saldırı</div>
+            <div>ESC: Duraklat</div>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2>Oyun Bitti!</h2>
+            <div>Final Skoru: <span id="finalScore">0</span></div>
+            <button class="restart-btn" onclick="restartGame()">Yeniden Başla</button>
+        </div>
+
+        <div class="upgrade-menu" id="upgradeMenu">
+            <h2>🎯 Seviye Atladın!</h2>
+            <div class="upgrade-info">Bir kategori seç ve güçlen:</div>
+            
+            <!-- Kategori Seçimi -->
+            <div class="category-selection" id="categorySelection">
+                <div class="category-grid">
+                    <button class="category-btn" onclick="showCategoryUpgrades('attack')" style="border-color: #ff4444;">
+                        <div class="category-icon">⚔️</div>
+                        <div class="category-name">Saldırı</div>
+                        <div class="category-desc">Hasar ve ateş gücü</div>
+                    </button>
+                    <button class="category-btn" onclick="showCategoryUpgrades('defense')" style="border-color: #4444ff;">
+                        <div class="category-icon">🛡️</div>
+                        <div class="category-name">Savunma</div>
+                        <div class="category-desc">Dayanıklılık ve koruma</div>
+                    </button>
+                    <button class="category-btn" onclick="showCategoryUpgrades('mobility')" style="border-color: #ffff44;">
+                        <div class="category-icon">⚡</div>
+                        <div class="category-name">Hareket</div>
+                        <div class="category-desc">Hız ve çeviklik</div>
+                    </button>
+                    <button class="category-btn" onclick="showCategoryUpgrades('utility')" style="border-color: #44ff44;">
+                        <div class="category-icon">🔧</div>
+                        <div class="category-name">Yardımcı</div>
+                        <div class="category-desc">Özel yetenekler</div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Upgrade Seçimi -->
+            <div class="upgrade-selection" id="upgradeSelection" style="display: none;">
+                <button class="back-btn" onclick="showCategorySelection()">⬅️ Geri</button>
+                <h3 id="selectedCategoryTitle"></h3>
+                <div class="upgrade-grid" id="upgradeGrid">
+                    <!-- Dinamik olarak doldurulacak -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html> 
