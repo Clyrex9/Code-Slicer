@@ -273,6 +273,23 @@ errorImageNames.forEach(name => {
     errorTypes[name].image = img;
 });
 
+// UI görselleri yükle
+const uiImages = {};
+const uiImageNames = ['skor', 'paused', 'resume', 'restart'];
+let uiImagesLoaded = 0;
+
+uiImageNames.forEach(name => {
+    const img = new Image();
+    img.onload = () => {
+        uiImagesLoaded++;
+    };
+    img.onerror = () => {
+        uiImagesLoaded++;
+    };
+    img.src = `images/${name}.png`;
+    uiImages[name] = img;
+});
+
 // Event listeners
 document.addEventListener('keydown', (e) => {
     keys[e.code] = true;
@@ -854,23 +871,33 @@ function drawPlayer() {
     const isMoving = mouse.isMoving || keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'];
     
     if (isMoving) {
-        // Animasyon frame'ini kullanarak 1 ve 2 arasında geçiş yap
         const frameNumber = Math.floor(player.animationFrame / player.animationSpeed) % 2 + 1;
-        imageName = player.direction + '_' + frameNumber;
-    }
-    
-    // Sol yön için özel kontrol (character_left.png dosyası _1 ekini içermiyor)
-    if (player.direction === 'left' && !isMoving) {
-        imageName = 'character_left'; // Durağan hali için
-    } else if (player.direction === 'left' && isMoving) {
-        const frameNumber = Math.floor(player.animationFrame / player.animationSpeed) % 2;
-        imageName = frameNumber === 0 ? 'character_left' : 'character_left_2';
-    }
-    
-    // Sağ yön için normal kontrol
-    if (player.direction === 'right') {
-        const frameNumber = Math.floor(player.animationFrame / player.animationSpeed) % 2 + 1;
-        imageName = isMoving ? 'character_right_' + frameNumber : 'character_right_1';
+        
+        // Her yön için ayrı kontrol
+        if (player.direction === 'front') {
+            // Aşağı hareket: front_1 ve front_2
+            imageName = 'character_front_' + frameNumber;
+        } else if (player.direction === 'back') {
+            // Yukarı hareket: back_1 ve back_2
+            imageName = 'character_back_' + frameNumber;
+        } else if (player.direction === 'left') {
+            // Sol hareket: left ve left_2 (özel durum)
+            imageName = frameNumber === 1 ? 'character_left' : 'character_left_2';
+        } else if (player.direction === 'right') {
+            // Sağ hareket: right_1 ve right_2
+            imageName = 'character_right_' + frameNumber;
+        }
+    } else {
+        // Durağan pozisyonlar
+        if (player.direction === 'front') {
+            imageName = 'character_front_1';
+        } else if (player.direction === 'back') {
+            imageName = 'character_back_1';
+        } else if (player.direction === 'left') {
+            imageName = 'character_left';
+        } else if (player.direction === 'right') {
+            imageName = 'character_right_1';
+        }
     }
     
     const img = characterImages[imageName];
@@ -982,27 +1009,47 @@ function drawParticles() {
 
 // UI çizimi
 function drawUI() {
-    // Sağ üst köşe - Oyun bilgileri
+    // Sol üst köşe - Skor görseli ile
+    const skorImg = uiImages['skor'];
+    if (skorImg && skorImg.complete) {
+        // Skor görselini çiz
+        const skorWidth = 150;
+        const skorHeight = 40;
+        ctx.drawImage(skorImg, 10, 10, skorWidth, skorHeight);
+        
+        // Skor değerini görsel içine yaz
+        ctx.fillStyle = '#00ff00';
+        ctx.font = 'bold 18px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(gameState.score.toString(), 10 + skorWidth/2, 10 + skorHeight/2 + 6);
+    } else {
+        // Fallback: Text skor
+        ctx.fillStyle = '#00ff00';
+        ctx.font = '16px Courier New';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Skor: ${gameState.score}`, 10, 25);
+    }
+    
+    // Sağ üst köşe - Diğer oyun bilgileri
     ctx.fillStyle = '#00ff00';
     ctx.font = '16px Courier New';
     ctx.textAlign = 'right';
     
-    ctx.fillText(`Skor: ${gameState.score}`, canvas.width - 10, 25);
-    ctx.fillText(`Level: ${gameState.level}`, canvas.width - 10, 45);
-    ctx.fillText(`Can: ${gameState.health}`, canvas.width - 10, 65);
+    ctx.fillText(`Level: ${gameState.level}`, canvas.width - 10, 25);
+    ctx.fillText(`Can: ${gameState.health}`, canvas.width - 10, 45);
     
     // Oyun süresi
     const minutes = Math.floor(gameState.gameTime / 60000);
     const seconds = Math.floor((gameState.gameTime % 60000) / 1000);
-    ctx.fillText(`Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width - 10, 85);
+    ctx.fillText(`Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width - 10, 65);
     
-    // Sol üst köşe - Kontroller
+    // Sol alt köşe - Kontroller (skor görselinin altında)
     ctx.textAlign = 'left';
     ctx.font = '12px Courier New';
-    ctx.fillText('W/A/S/D: Ateş Et', 10, 20);
-    ctx.fillText('Mouse: Hareket', 10, 35);
-    ctx.fillText('Space: Ateş', 10, 50);
-    ctx.fillText('ESC: Duraklat', 10, 65);
+    ctx.fillText('W/A/S/D: Ateş Et', 10, 70);
+    ctx.fillText('Mouse: Hareket', 10, 85);
+    ctx.fillText('Space: Ateş', 10, 100);
+    ctx.fillText('ESC: Duraklat', 10, 115);
     
     // Can barı
     const barWidth = 200;
