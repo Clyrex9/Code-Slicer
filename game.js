@@ -2,6 +2,56 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Ses sistemi
+const sounds = {
+    typing: new Audio('sounds/typing.mp3'),
+    bullet: new Audio('sounds/bullet.mp3'),
+    errorStart: new Audio('sounds/error_start.mp3'),
+    backVocal: new Audio('sounds/backvocal.mp3')
+};
+
+// Ses ayarları
+sounds.typing.volume = 0.3;
+sounds.bullet.volume = 0.2;
+sounds.errorStart.volume = 0.4;
+sounds.backVocal.volume = 0.15;
+
+// Rastgele ses çalma için zamanlayıcı
+let lastBackVocalTime = 0;
+const backVocalInterval = 30000; // 30 saniye minimum aralık
+
+// Ses çalma fonksiyonları
+function playSound(soundName) {
+    try {
+        const sound = sounds[soundName];
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log('Ses çalma hatası:', e));
+        }
+    } catch (e) {
+        console.log('Ses hatası:', e);
+    }
+}
+
+function playRandomBackVocal() {
+    const currentTime = Date.now();
+    if (currentTime - lastBackVocalTime > backVocalInterval) {
+        // %5 şans ile rastgele back vocal çal
+        if (Math.random() < 0.05) {
+            playSound('backVocal');
+            lastBackVocalTime = currentTime;
+        }
+    }
+}
+
+function playErrorStartSound() {
+    // Önemli errorlar için - sadece error3 ve error4 gelirken
+    // Ve çok nadir (%15 şans)
+    if (Math.random() < 0.15) {
+        playSound('errorStart');
+    }
+}
+
 // Oyun durumu
 let gameState = {
     running: true,
@@ -12,7 +62,8 @@ let gameState = {
     level: 1,
     nextLevelScore: 100,
     showUpgrade: false,
-    gameTime: 0 // Oyun süresi tracking için
+    gameTime: 0, // Oyun süresi tracking için
+    lastFireTime: 0 // Son ateş etme zamanı
 };
 
 // Gelişmiş Upgrade Sistemi
@@ -389,6 +440,9 @@ function gameLoop() {
     updateBonuses();
     updateParticles();
     
+    // Rastgele back vocal çal
+    playRandomBackVocal();
+    
     draw();
     
     requestAnimationFrame(gameLoop);
@@ -447,6 +501,14 @@ function updatePlayer() {
 function shootDirection(direction) {
     if (gameState.paused) return;
     
+    // Fire rate kontrolü (150ms minimum aralık)
+    const currentTime = Date.now();
+    if (currentTime - gameState.lastFireTime < 150) return;
+    gameState.lastFireTime = currentTime;
+    
+    // Typing sesi çal
+    playSound('typing');
+    
     const bulletData = {
         x: player.x + player.width / 2,
         y: player.y + player.height / 2,
@@ -467,6 +529,14 @@ function shootDirection(direction) {
 // Ateş etme
 function shoot() {
     if (gameState.paused) return;
+    
+    // Fire rate kontrolü (150ms minimum aralık)
+    const currentTime = Date.now();
+    if (currentTime - gameState.lastFireTime < 150) return;
+    gameState.lastFireTime = currentTime;
+    
+    // Typing sesi çal
+    playSound('typing');
     
     const bulletData = {
         x: player.x + player.width / 2,
@@ -554,6 +624,11 @@ function createBullets(bulletData) {
         bullet.hitCount = 0; // Kaç düşmana çarptığını takip et
         
         bullets.push(bullet);
+        
+        // Mermi sesi çal (sadece ilk mermi için)
+        if (i === 0) {
+            playSound('bullet');
+        }
     }
 }
 
@@ -1019,9 +1094,10 @@ function drawUI() {
         
         // Skor değerini görsel içine yaz
         ctx.fillStyle = '#00ff00';
-        ctx.font = 'bold 18px Courier New';
+        ctx.font = 'bold 19px "Courier New", "Lucida Console", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(gameState.score.toString(), 10 + skorWidth/2, 10 + skorHeight/2 + 6);
+        ctx.textShadow = '0 0 8px #00ff00';
+        ctx.fillText(gameState.score.toString(), 10 + skorWidth/2 + 20, 10 + skorHeight/2 + 6);
     }
     
     // Sağ üst köşe - Oyun bilgileri
@@ -1131,7 +1207,8 @@ function restartGame() {
         level: 1,
         nextLevelScore: 100,
         showUpgrade: false,
-        gameTime: 0
+        gameTime: 0,
+        lastFireTime: 0
     };
     
     upgrades = {
@@ -1283,6 +1360,11 @@ function spawnEnemy() {
     }
     
     enemies.push(enemy);
+    
+    // Önemli errorlar için ses çal (error3 ve error4)
+    if (errorType === 'error3' || errorType === 'error4') {
+        playErrorStartSound();
+    }
 }
 
 // Kategori seçimi göster
