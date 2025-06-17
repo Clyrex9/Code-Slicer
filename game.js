@@ -181,8 +181,8 @@ const upgradeDetails = {
 let player = {
     x: canvas.width / 2,
     y: canvas.height / 2,
-    width: 40,
-    height: 40,
+    width: 55,  // 40'dan 55'e çıkardık
+    height: 55, // 40'dan 55'e çıkardık
     speed: 2.5,
     direction: 'front',
     lastDirection: 'front',
@@ -1009,7 +1009,7 @@ function drawParticles() {
 
 // UI çizimi
 function drawUI() {
-    // Sol üst köşe - Skor görseli ile
+    // Sol üst köşe - Sadece skor görseli
     const skorImg = uiImages['skor'];
     if (skorImg && skorImg.complete) {
         // Skor görselini çiz
@@ -1022,15 +1022,9 @@ function drawUI() {
         ctx.font = 'bold 18px Courier New';
         ctx.textAlign = 'center';
         ctx.fillText(gameState.score.toString(), 10 + skorWidth/2, 10 + skorHeight/2 + 6);
-    } else {
-        // Fallback: Text skor
-        ctx.fillStyle = '#00ff00';
-        ctx.font = '16px Courier New';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Skor: ${gameState.score}`, 10, 25);
     }
     
-    // Sağ üst köşe - Diğer oyun bilgileri
+    // Sağ üst köşe - Oyun bilgileri
     ctx.fillStyle = '#00ff00';
     ctx.font = '16px Courier New';
     ctx.textAlign = 'right';
@@ -1043,7 +1037,7 @@ function drawUI() {
     const seconds = Math.floor((gameState.gameTime % 60000) / 1000);
     ctx.fillText(`Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width - 10, 65);
     
-    // Sol alt köşe - Kontroller (skor görselinin altında)
+    // Sol alt köşe - Kontroller
     ctx.textAlign = 'left';
     ctx.font = '12px Courier New';
     ctx.fillText('W/A/S/D: Ateş Et', 10, 70);
