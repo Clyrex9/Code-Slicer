@@ -1179,20 +1179,734 @@ function updateBonuses(deltaTime) {
     });
 }
 
-function updateBoss(deltaTime) {
-    // Boss update logic - placeholder
-    if (!boss) return;
+// =============================================================================
+// ENHANCED BOSS SYSTEM
+// =============================================================================
+
+class BossSystem {
+    constructor(audioManager, vfxManager) {
+        this.audioManager = audioManager;
+        this.vfxManager = vfxManager;
+        this.currentBoss = null;
+        this.bossTypes = this.initBossTypes();
+        this.bossSpawnTimer = 0;
+        this.nextBossLevel = 5;
+    }
     
-    // Basic AI for now
-    const dx = player.x - boss.x;
-    const dy = player.y - boss.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    initBossTypes() {
+        return {
+            megaError: {
+                name: "MEGA ERROR",
+                width: 120,
+                height: 120,
+                maxHealth: 200,
+                speed: 0.8,
+                damage: 30,
+                points: 500,
+                color: "#ff0000",
+                abilities: ["rampage", "spawn_minions"],
+                phases: 2
+            },
+            systemCrash: {
+                name: "SYSTEM CRASH",
+                width: 150,
+                height: 100,
+                maxHealth: 350,
+                speed: 0.6,
+                damage: 45,
+                points: 800,
+                color: "#8800ff",
+                abilities: ["laser_beam", "emp_blast", "teleport"],
+                phases: 3
+            },
+            corruptedCore: {
+                name: "CORRUPTED CORE",
+                width: 180,
+                height: 180,
+                maxHealth: 500,
+                speed: 0.4,
+                damage: 60,
+                points: 1200,
+                color: "#ff8800",
+                abilities: ["meteor_storm", "shield_phase", "summon_errors"],
+                phases: 4
+            },
+            theVirus: {
+                name: "THE VIRUS",
+                width: 200,
+                height: 200,
+                maxHealth: 1000,
+                speed: 0.3,
+                damage: 80,
+                points: 2000,
+                color: "#00ff00",
+                abilities: ["divide", "corruption_wave", "reality_tear"],
+                phases: 5
+            }
+        };
+    }
     
-    if (distance > 0) {
-        boss.x += (dx / distance) * boss.speed * deltaTime * 0.05;
-        boss.y += (dy / distance) * boss.speed * deltaTime * 0.05;
+    shouldSpawnBoss(level, gameTime) {
+        return level >= this.nextBossLevel && !gameState.bossActive;
+    }
+    
+    spawnBoss(level) {
+        // Select boss type based on level
+        let bossType;
+        if (level < 10) bossType = "megaError";
+        else if (level < 20) bossType = "systemCrash";
+        else if (level < 35) bossType = "corruptedCore";
+        else bossType = "theVirus";
+        
+        const bossData = this.bossTypes[bossType];
+        
+        // Scale boss stats with level
+        const levelMultiplier = 1 + (level - this.nextBossLevel) * 0.2;
+        
+        this.currentBoss = {
+            type: bossType,
+            name: bossData.name,
+            x: gameEngine.canvas.width / 2 - bossData.width / 2,
+            y: -bossData.height - 50,
+            width: bossData.width,
+            height: bossData.height,
+            health: Math.floor(bossData.maxHealth * levelMultiplier),
+            maxHealth: Math.floor(bossData.maxHealth * levelMultiplier),
+            speed: bossData.speed,
+            damage: Math.floor(bossData.damage * levelMultiplier),
+            points: Math.floor(bossData.points * levelMultiplier),
+            color: bossData.color,
+            abilities: [...bossData.abilities],
+            phases: bossData.phases,
+            currentPhase: 1,
+            
+            // Combat state
+            targetX: gameEngine.canvas.width / 2 - bossData.width / 2,
+            targetY: 100,
+            abilityTimer: 0,
+            abilityInterval: 3000,
+            movementTimer: 0,
+            isEntering: true,
+            
+            // Visual effects
+            glowIntensity: 0,
+            shake: { x: 0, y: 0 },
+            trail: []
+        };
+        
+        gameState.bossActive = true;
+        this.nextBossLevel += 5;
+        
+        // Epic boss entrance
+        this.audioManager.playMusic('bossMusic');
+        this.audioManager.playSound('bossWarning', 1.5, 0.7);
+        this.vfxManager.addFlashEffect('#ff0000', 0.7, 1500);
+        this.vfxManager.addScreenShake(20, 1000);
+        
+        // Boss warning notification
+        this.showBossWarning(this.currentBoss.name);
+        
+        return this.currentBoss;
+    }
+    
+    updateBoss(deltaTime) {
+        if (!this.currentBoss) return null;
+        
+        const boss = this.currentBoss;
+        
+        // Update boss entrance
+        if (boss.isEntering) {
+            boss.y += 1;
+            if (boss.y >= boss.targetY) {
+                boss.isEntering = false;
+                boss.y = boss.targetY;
+            }
+            return boss;
+        }
+        
+        // Update boss AI
+        this.updateBossAI(boss, deltaTime);
+        
+        // Update boss abilities
+        this.updateBossAbilities(boss, deltaTime);
+        
+        // Update visual effects
+        this.updateBossEffects(boss, deltaTime);
+        
+        // Check phase transitions
+        this.checkPhaseTransition(boss);
+        
+        return boss;
+    }
+    
+    updateBossAI(boss, deltaTime) {
+        boss.movementTimer += deltaTime;
+        
+        // Different movement patterns based on boss type and phase
+        switch (boss.type) {
+            case "megaError":
+                this.updateMegaErrorAI(boss, deltaTime);
+                break;
+            case "systemCrash":
+                this.updateSystemCrashAI(boss, deltaTime);
+                break;
+            case "corruptedCore":
+                this.updateCorruptedCoreAI(boss, deltaTime);
+                break;
+            case "theVirus":
+                this.updateTheVirusAI(boss, deltaTime);
+                break;
+        }
+        
+        // Keep boss in bounds
+        boss.x = Math.max(0, Math.min(gameEngine.canvas.width - boss.width, boss.x));
+        boss.y = Math.max(0, Math.min(gameEngine.canvas.height * 0.6, boss.y));
+    }
+    
+    updateMegaErrorAI(boss, deltaTime) {
+        // Simple aggressive movement toward player
+        const dx = (player.x + player.width/2) - (boss.x + boss.width/2);
+        const dy = (player.y + player.height/2) - (boss.y + boss.height/2);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 150) {
+            boss.x += (dx / distance) * boss.speed * deltaTime * 0.1;
+            boss.y += (dy / distance) * boss.speed * deltaTime * 0.1;
+        }
+    }
+    
+    updateSystemCrashAI(boss, deltaTime) {
+        // Circular movement pattern with occasional teleports
+        if (boss.movementTimer > 5000) {
+            // Teleport to random position
+            boss.x = Math.random() * (gameEngine.canvas.width - boss.width);
+            boss.y = Math.random() * 200 + 50;
+            boss.movementTimer = 0;
+            
+            this.vfxManager.createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, 2.0, '#8800ff');
+        } else {
+            // Circular movement
+            const centerX = gameEngine.canvas.width / 2;
+            const centerY = 150;
+            const radius = 120;
+            const angle = boss.movementTimer * 0.001;
+            
+            boss.x = centerX + Math.cos(angle) * radius - boss.width/2;
+            boss.y = centerY + Math.sin(angle) * radius - boss.height/2;
+        }
+    }
+    
+    updateCorruptedCoreAI(boss, deltaTime) {
+        // Hover in center with defensive positioning
+        const targetX = gameEngine.canvas.width / 2 - boss.width / 2;
+        const targetY = 120;
+        
+        boss.x += (targetX - boss.x) * 0.02;
+        boss.y += (targetY - boss.y) * 0.02;
+        
+        // Add defensive shield rotation
+        boss.shieldAngle = (boss.shieldAngle || 0) + deltaTime * 0.003;
+    }
+    
+    updateTheVirusAI(boss, deltaTime) {
+        // Unpredictable movement with reality distortion
+        if (boss.movementTimer > 2000) {
+            boss.targetX = Math.random() * (gameEngine.canvas.width - boss.width);
+            boss.targetY = Math.random() * 200 + 50;
+            boss.movementTimer = 0;
+        }
+        
+        // Smooth movement to target with distortion
+        boss.x += (boss.targetX - boss.x) * 0.03;
+        boss.y += (boss.targetY - boss.y) * 0.03;
+        
+        // Reality distortion effect
+        const distortion = Math.sin(boss.movementTimer * 0.01) * 10;
+        boss.x += distortion;
+    }
+    
+    updateBossAbilities(boss, deltaTime) {
+        boss.abilityTimer += deltaTime;
+        
+        if (boss.abilityTimer >= boss.abilityInterval) {
+            const randomAbility = boss.abilities[Math.floor(Math.random() * boss.abilities.length)];
+            this.activateBossAbility(boss, randomAbility);
+            boss.abilityTimer = 0;
+            
+            // Decrease ability interval as boss gets damaged
+            const healthPercent = boss.health / boss.maxHealth;
+            boss.abilityInterval = 3000 * healthPercent + 1000; // Minimum 1 second
+        }
+    }
+    
+    activateBossAbility(boss, ability) {
+        switch (ability) {
+            case "rampage":
+                this.bossRampage(boss);
+                break;
+            case "spawn_minions":
+                this.bossSpawnMinions(boss);
+                break;
+            case "laser_beam":
+                this.bossLaserBeam(boss);
+                break;
+            case "emp_blast":
+                this.bossEMPBlast(boss);
+                break;
+            case "teleport":
+                this.bossTeleport(boss);
+                break;
+            case "meteor_storm":
+                this.bossMeteorStorm(boss);
+                break;
+            case "shield_phase":
+                this.bossShieldPhase(boss);
+                break;
+            case "summon_errors":
+                this.bossSummonErrors(boss);
+                break;
+            case "divide":
+                this.bossDivide(boss);
+                break;
+            case "corruption_wave":
+                this.bossCorruptionWave(boss);
+                break;
+            case "reality_tear":
+                this.bossRealityTear(boss);
+                break;
+        }
+    }
+    
+    // Boss ability implementations
+    bossRampage(boss) {
+        boss.speed *= 3;
+        boss.damage *= 1.5;
+        this.audioManager.playSound('bossWarning');
+        this.vfxManager.addFlashEffect('#ff0000', 0.5, 2000);
+        
+        setTimeout(() => {
+            boss.speed /= 3;
+            boss.damage /= 1.5;
+        }, 3000);
+    }
+    
+    bossSpawnMinions(boss) {
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                spawnEnemy();
+                this.vfxManager.createExplosion(
+                    Math.random() * gameEngine.canvas.width,
+                    Math.random() * gameEngine.canvas.height,
+                    1.0,
+                    boss.color
+                );
+            }, i * 500);
+        }
+    }
+    
+    bossLaserBeam(boss) {
+        const targetX = player.x + player.width/2;
+        const targetY = player.y + player.height/2;
+        
+        // Create laser effect
+        this.createLaserBeam(
+            boss.x + boss.width/2,
+            boss.y + boss.height/2,
+            targetX,
+            targetY
+        );
+        
+        this.audioManager.playSound('explosion', 1.0, 1.5);
+    }
+    
+    bossEMPBlast(boss) {
+        // Disable player abilities temporarily
+        player.disabledUntil = Date.now() + 3000;
+        
+        this.vfxManager.createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, 4.0, '#00ffff');
+        this.vfxManager.addScreenShake(15, 1000);
+        this.audioManager.playSound('explosion', 1.5, 0.8);
+    }
+    
+    bossTeleport(boss) {
+        this.vfxManager.createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, 2.0, boss.color);
+        
+        boss.x = Math.random() * (gameEngine.canvas.width - boss.width);
+        boss.y = Math.random() * 200 + 50;
+        
+        this.vfxManager.createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, 2.0, boss.color);
+    }
+    
+    bossMeteorStorm(boss) {
+        for (let i = 0; i < 8; i++) {
+            setTimeout(() => {
+                const meteorX = Math.random() * gameEngine.canvas.width;
+                const meteorY = -50;
+                
+                // Create meteor projectile
+                this.createMeteor(meteorX, meteorY);
+            }, i * 300);
+        }
+    }
+    
+    bossShieldPhase(boss) {
+        boss.shielded = true;
+        boss.shieldTime = 5000;
+        
+        this.vfxManager.addFlashEffect('#0088ff', 0.3, 5000);
+    }
+    
+    bossSummonErrors(boss) {
+        for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+                spawnEnemy();
+            }, i * 200);
+        }
+    }
+    
+    bossDivide(boss) {
+        // Create temporary smaller bosses
+        for (let i = 0; i < 2; i++) {
+            const miniBoss = {
+                x: boss.x + i * 100,
+                y: boss.y + 50,
+                width: boss.width * 0.6,
+                height: boss.height * 0.6,
+                health: boss.maxHealth * 0.3,
+                maxHealth: boss.maxHealth * 0.3,
+                speed: boss.speed * 1.5,
+                damage: boss.damage * 0.7,
+                color: boss.color,
+                isMiniBoss: true,
+                lifetime: 10000
+            };
+            
+            enemies.push(miniBoss);
+        }
+    }
+    
+    bossCorruptionWave(boss) {
+        // Create expanding corruption wave
+        this.createCorruptionWave(boss.x + boss.width/2, boss.y + boss.height/2);
+    }
+    
+    bossRealityTear(boss) {
+        // Create reality distortion effect
+        this.vfxManager.setTimeScale(0.3);
+        this.vfxManager.addFlashEffect('#ff00ff', 0.8, 3000);
+        
+        setTimeout(() => {
+            this.vfxManager.setTimeScale(1.0);
+        }, 3000);
+    }
+    
+    updateBossEffects(boss, deltaTime) {
+        // Update boss glow effect
+        boss.glowIntensity = 0.5 + Math.sin(Date.now() * 0.01) * 0.3;
+        
+        // Update boss shake when damaged
+        if (boss.health < boss.maxHealth * 0.3) {
+            boss.shake.x = (Math.random() - 0.5) * 4;
+            boss.shake.y = (Math.random() - 0.5) * 4;
+        }
+        
+        // Update boss trail
+        if (boss.trail.length > 10) {
+            boss.trail.shift();
+        }
+        boss.trail.push({
+            x: boss.x + boss.width/2,
+            y: boss.y + boss.height/2,
+            alpha: 1.0
+        });
+        
+        boss.trail.forEach((point, index) => {
+            point.alpha = index / boss.trail.length;
+        });
+        
+        // Update shield effect
+        if (boss.shielded) {
+            boss.shieldTime -= deltaTime;
+            if (boss.shieldTime <= 0) {
+                boss.shielded = false;
+            }
+        }
+    }
+    
+    checkPhaseTransition(boss) {
+        const healthPercent = boss.health / boss.maxHealth;
+        const newPhase = Math.ceil(healthPercent * boss.phases);
+        
+        if (newPhase < boss.currentPhase) {
+            boss.currentPhase = newPhase;
+            this.triggerPhaseTransition(boss);
+        }
+    }
+    
+    triggerPhaseTransition(boss) {
+        // Epic phase transition effects
+        this.vfxManager.addScreenShake(25, 1500);
+        this.vfxManager.addFlashEffect('#ffffff', 0.8, 1000);
+        this.audioManager.playSound('bossWarning', 2.0, 0.5);
+        
+        // Heal boss slightly and increase abilities
+        boss.health += boss.maxHealth * 0.1;
+        boss.speed *= 1.2;
+        boss.abilityInterval *= 0.8;
+        
+        // Add new abilities based on phase
+        if (boss.currentPhase <= 2 && !boss.abilities.includes('enhanced_attack')) {
+            boss.abilities.push('enhanced_attack');
+        }
+    }
+    
+    createLaserBeam(startX, startY, endX, endY) {
+        // Implementation for laser beam visual effect
+        // This would be handled by VFX system
+        const angle = Math.atan2(endY - startY, endX - startX);
+        const distance = Math.sqrt((endX - startX) ** 2 + (endY - startY) ** 2);
+        
+        // Create laser particles
+        for (let i = 0; i < distance; i += 5) {
+            const x = startX + Math.cos(angle) * i;
+            const y = startY + Math.sin(angle) * i;
+            
+            this.vfxManager.createExplosion(x, y, 0.3, '#00ffff');
+        }
+        
+        // Damage player if hit
+        const playerCenterX = player.x + player.width/2;
+        const playerCenterY = player.y + player.height/2;
+        const playerDistance = this.distanceToLine(playerCenterX, playerCenterY, startX, startY, endX, endY);
+        
+        if (playerDistance < 30) {
+            takeDamage(20);
+        }
+    }
+    
+    createMeteor(x, y) {
+        const meteor = {
+            x: x,
+            y: y,
+            width: 30,
+            height: 30,
+            dx: 0,
+            dy: 8,
+            color: '#ff8800',
+            isMeteor: true,
+            explosive: true,
+            explosionRadius: 80,
+            damage: 25
+        };
+        
+        bullets.push(meteor);
+    }
+    
+    createCorruptionWave(centerX, centerY) {
+        // Create expanding wave effect
+        for (let radius = 20; radius <= 200; radius += 20) {
+            setTimeout(() => {
+                for (let angle = 0; angle < Math.PI * 2; angle += 0.2) {
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    
+                    this.vfxManager.createExplosion(x, y, 0.5, '#8800ff');
+                }
+                
+                // Damage player if in range
+                const dx = player.x + player.width/2 - centerX;
+                const dy = player.y + player.height/2 - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (Math.abs(distance - radius) < 25) {
+                    takeDamage(15);
+                }
+            }, (radius - 20) * 50);
+        }
+    }
+    
+    distanceToLine(px, py, x1, y1, x2, y2) {
+        const A = px - x1;
+        const B = py - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        
+        if (lenSq === 0) return Math.sqrt(A * A + B * B);
+        
+        const param = dot / lenSq;
+        
+        let xx, yy;
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+        
+        const dx = px - xx;
+        const dy = py - yy;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    showBossWarning(bossName) {
+        const warning = document.createElement('div');
+        warning.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            padding: 30px 50px;
+            font-family: 'Orbitron', monospace;
+            font-size: 32px;
+            font-weight: 900;
+            text-align: center;
+            border: 4px solid #fff;
+            border-radius: 15px;
+            z-index: 1000;
+            animation: bossWarningPulse 0.5s ease-in-out 3;
+            pointer-events: none;
+            text-shadow: 0 0 10px #fff;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+        `;
+        
+        warning.innerHTML = `
+            <div style="font-size: 16px; margin-bottom: 10px;">⚠️ BOSS INCOMING ⚠️</div>
+            <div>${bossName}</div>
+            <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">PREPARE FOR BATTLE</div>
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes bossWarningPulse {
+                0%, 100% { transform: translate(-50%, -50%) scale(1); }
+                50% { transform: translate(-50%, -50%) scale(1.1); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(warning);
+        
+        setTimeout(() => {
+            if (warning.parentNode) warning.parentNode.removeChild(warning);
+            if (style.parentNode) style.parentNode.removeChild(style);
+        }, 3000);
+    }
+    
+    defeatBoss() {
+        if (!this.currentBoss) return;
+        
+        const boss = this.currentBoss;
+        
+        // Award massive points
+        const points = boss.points;
+        gameState.score += points;
+        
+        // Epic defeat effects
+        this.vfxManager.createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, 5.0, boss.color);
+        this.vfxManager.addScreenShake(30, 2000);
+        this.vfxManager.addFlashEffect('#ffffff', 1.0, 1500);
+        this.audioManager.playSound('explosion', 2.0, 0.6);
+        
+        // Show defeat notification
+        this.showBossDefeatNotification(boss.name, points);
+        
+        // Clear boss state
+        this.currentBoss = null;
+        gameState.bossActive = false;
+        
+        // Return to normal music
+        this.audioManager.playMusic('gameMusic1', 2000);
+        
+        // Bonus rewards
+        for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+                spawnBonus();
+            }, i * 200);
+        }
+    }
+    
+    showBossDefeatNotification(bossName, points) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.9), rgba(0, 255, 255, 0.9));
+            color: #000;
+            padding: 40px 60px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            text-align: center;
+            border: 4px solid #fff;
+            border-radius: 20px;
+            z-index: 1000;
+            animation: victoryAnimation 0.8s ease-in-out;
+            pointer-events: none;
+            box-shadow: 0 0 60px rgba(0, 255, 136, 0.8);
+        `;
+        
+        notification.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 15px;">🎉 BOSS DEFEATED! 🎉</div>
+            <div style="font-size: 28px; margin-bottom: 15px;">${bossName}</div>
+            <div style="font-size: 20px; color: #ffff00;">+${points} POINTS</div>
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes victoryAnimation {
+                0% { transform: translate(-50%, -50%) scale(0) rotate(180deg); opacity: 0; }
+                50% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
+                100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) notification.parentNode.removeChild(notification);
+            if (style.parentNode) style.parentNode.removeChild(style);
+        }, 4000);
+    }
+    
+    takeBossDamage(damage) {
+        if (!this.currentBoss) return false;
+        
+        const boss = this.currentBoss;
+        
+        // Apply damage (reduced if shielded)
+        if (boss.shielded) {
+            damage *= 0.5;
+            this.vfxManager.createExplosion(boss.x + boss.width/2, boss.y + boss.height/2, 1.0, '#0088ff');
+        }
+        
+        boss.health -= damage;
+        
+        // Visual feedback
+        this.vfxManager.addScreenShake(5, 200);
+        
+        // Check if boss is defeated
+        if (boss.health <= 0) {
+            this.defeatBoss();
+            return true;
+        }
+        
+        return false;
     }
 }
+
+// Initialize boss system
+let bossSystem;
 
 function updateGameState(deltaTime) {
     // Level progression
