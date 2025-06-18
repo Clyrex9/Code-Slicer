@@ -970,7 +970,7 @@ function update(deltaTime) {
     updateBonuses(deltaTime);
     
     if (boss) {
-        updateBoss(deltaTime);
+        boss = bossSystem.updateBoss(deltaTime);
     }
     
     // Update game state
