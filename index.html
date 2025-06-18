@@ -1,48 +1,116 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coder X - Hata Avcısı</title>
+    <title>Code Slicer - Release Edition</title>
+    <meta name="description" content="Professional code-hunting action game with epic upgrades and boss battles">
     <style>
-        body {
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        :root {
+            --primary-green: #00ff88;
+            --secondary-green: #00cc66;
+            --dark-green: #004422;
+            --accent-cyan: #00ffff;
+            --accent-yellow: #ffff00;
+            --danger-red: #ff4444;
+            --warning-orange: #ff8800;
+            --background-dark: #0a0a0f;
+            --background-darker: #050508;
+            --ui-panel: rgba(0, 255, 136, 0.1);
+            --ui-border: rgba(0, 255, 136, 0.3);
+            --text-shadow: 0 0 10px var(--primary-green);
+            --box-shadow-glow: 0 0 20px rgba(0, 255, 136, 0.4);
+        }
+        
+        * {
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #0f0f23, #1a1a2e);
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Orbitron', 'Share Tech Mono', monospace;
+            background: 
+                radial-gradient(circle at 25% 25%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(0, 255, 255, 0.05) 0%, transparent 50%),
+                linear-gradient(135deg, var(--background-darker) 0%, var(--background-dark) 100%);
+            color: var(--primary-green);
+            overflow: hidden;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            font-family: 'Courier New', monospace;
-            color: #00ff00;
-            overflow: hidden;
-        }
-
-        .game-container {
             position: relative;
-            border: 2px solid #00ff00;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-            background: rgba(0, 0, 0, 0.8);
-        }
-
-        #gameCanvas {
-            display: block;
-            background: #000011;
-            cursor: none; /* Custom cursor için gizle */
         }
         
+        /* Animated background effects */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(90deg, transparent 98%, rgba(0, 255, 136, 0.03) 100%),
+                linear-gradient(0deg, transparent 98%, rgba(0, 255, 136, 0.03) 100%);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        
+        .game-container {
+            position: relative;
+            border: 3px solid var(--primary-green);
+            border-radius: 15px;
+            background: var(--ui-panel);
+            backdrop-filter: blur(10px);
+            box-shadow: 
+                var(--box-shadow-glow),
+                inset 0 0 50px rgba(0, 255, 136, 0.05);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .game-container:hover {
+            box-shadow: 
+                0 0 30px rgba(0, 255, 136, 0.6),
+                inset 0 0 50px rgba(0, 255, 136, 0.1);
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: 
+                radial-gradient(circle at 50% 50%, rgba(0, 20, 40, 0.8) 0%, rgba(0, 0, 17, 0.95) 100%);
+            cursor: none;
+            image-rendering: crisp-edges;
+        }
+        
+        /* Enhanced custom cursor */
         .custom-cursor {
             position: fixed;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #00ff00;
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--primary-green);
             border-radius: 50%;
             pointer-events: none;
-            z-index: 1000;
+            z-index: 10000;
             transform: translate(-50%, -50%);
-            background: rgba(0, 255, 0, 0.1);
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            background: 
+                radial-gradient(circle, rgba(0, 255, 136, 0.2) 0%, transparent 70%);
+            box-shadow: 
+                0 0 15px var(--primary-green),
+                inset 0 0 10px rgba(0, 255, 136, 0.3);
+            transition: all 0.1s ease;
+            animation: cursorPulse 2s infinite ease-in-out;
         }
         
         .custom-cursor::before {
@@ -50,335 +118,685 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 4px;
-            height: 4px;
-            background: #00ff00;
+            width: 6px;
+            height: 6px;
+            background: var(--primary-green);
             border-radius: 50%;
             transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px var(--primary-green);
         }
-
-
-
-
-
-        .game-over {
+        
+        .custom-cursor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 12px;
+            background: var(--primary-green);
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 4px var(--primary-green);
+        }
+        
+        @keyframes cursorPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+        
+        /* Loading screen */
+        .loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-darker);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: var(--text-shadow);
+            margin-bottom: 30px;
+            animation: loadingTextGlow 2s infinite ease-in-out;
+        }
+        
+        @keyframes loadingTextGlow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 6px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid var(--primary-green);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-green), var(--accent-cyan));
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--primary-green);
+        }
+        
+        /* Modal base styles */
+        .modal {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 20;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 30px;
-            border-radius: 10px;
-            border: 2px solid #ff4444;
-            text-align: center;
-            display: none;
-        }
-
-        .game-over h2 {
-            color: #ff4444;
-            margin-top: 0;
-        }
-
-        .restart-btn {
-            background: #00ff00;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-
-        .restart-btn:hover {
-            background: #00cc00;
-        }
-
-        .upgrade-menu {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 20;
-            background: rgba(0, 0, 0, 0.95);
-            padding: 30px;
-            border-radius: 10px;
-            border: 2px solid #00ff00;
-            text-align: center;
+            z-index: 30;
+            background: 
+                linear-gradient(135deg, 
+                    rgba(0, 0, 0, 0.95) 0%, 
+                    rgba(0, 20, 40, 0.95) 100%);
+            border: 2px solid var(--primary-green);
+            border-radius: 15px;
+            backdrop-filter: blur(15px);
+            box-shadow: 
+                var(--box-shadow-glow),
+                inset 0 0 30px rgba(0, 255, 136, 0.1);
             display: none;
             min-width: 400px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
         }
-
-        .upgrade-menu h2 {
-            color: #00ff00;
-            margin-top: 0;
-            margin-bottom: 20px;
+        
+        .modal-header {
+            padding: 25px 30px 15px;
+            text-align: center;
+            border-bottom: 1px solid var(--ui-border);
         }
-
-        .upgrade-info {
-            margin-bottom: 20px;
-            font-size: 16px;
+        
+        .modal-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--primary-green);
+            text-shadow: var(--text-shadow);
+            margin: 0;
+            animation: titleGlow 3s infinite ease-in-out;
         }
-
-        .upgrade-options {
-            display: flex;
+        
+        @keyframes titleGlow {
+            0%, 100% { text-shadow: var(--text-shadow); }
+            50% { text-shadow: 0 0 20px var(--primary-green); }
+        }
+        
+        .modal-content {
+            padding: 25px 30px;
+        }
+        
+        /* Game Over Modal */
+        .game-over {
+            text-align: center;
+        }
+        
+        .final-score {
+            font-family: 'Orbitron', monospace;
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--accent-yellow);
+            text-shadow: 0 0 15px var(--accent-yellow);
+            margin: 20px 0;
+            animation: scoreGlow 2s infinite ease-in-out;
+        }
+        
+        @keyframes scoreGlow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .game-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 20px;
-            justify-content: center;
-        }
-
-        .upgrade-btn {
-            background: rgba(0, 255, 0, 0.1);
-            color: #00ff00;
-            border: 2px solid #00ff00;
+            margin: 25px 0;
             padding: 20px;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 8px;
-            min-width: 150px;
-            transition: all 0.3s ease;
+            background: var(--ui-panel);
+            border-radius: 10px;
+            border: 1px solid var(--ui-border);
         }
-
-        .upgrade-btn:hover {
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        
+        .stat-item {
+            text-align: center;
         }
-
-        .upgrade-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .upgrade-desc {
+        
+        .stat-label {
             font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .category-selection {
-            margin-bottom: 20px;
-        }
-
-        .category-grid {
-            display: flex;
-            gap: 10px;
-        }
-
-        .category-btn {
-            background: rgba(0, 0, 0, 0.5);
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 10px;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            min-width: 100px;
-            transition: all 0.3s ease;
-        }
-
-        .category-btn:hover {
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-        }
-
-        .category-icon {
-            font-size: 20px;
+            color: rgba(0, 255, 136, 0.7);
             margin-bottom: 5px;
         }
-
+        
+        .stat-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-green);
+        }
+        
+        /* Pause Menu */
+        .pause-menu {
+            text-align: center;
+        }
+        
+        .pause-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            background: var(--primary-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: var(--background-dark);
+            animation: pauseIconSpin 4s linear infinite;
+        }
+        
+        @keyframes pauseIconSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Upgrade Menu */
+        .upgrade-menu {
+            min-width: 600px;
+        }
+        
+        .upgrade-info {
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 16px;
+            color: rgba(0, 255, 136, 0.8);
+        }
+        
+        .category-selection {
+            margin-bottom: 25px;
+        }
+        
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .category-btn {
+            background: var(--ui-panel);
+            border: 2px solid var(--ui-border);
+            border-radius: 10px;
+            padding: 20px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            color: var(--primary-green);
+            font-family: 'Orbitron', monospace;
+            font-weight: 600;
+        }
+        
+        .category-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--primary-green);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .category-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 5px currentColor);
+        }
+        
         .category-name {
             font-size: 14px;
-            font-weight: bold;
+            font-weight: 700;
+            margin-bottom: 5px;
         }
-
+        
         .category-desc {
-            font-size: 12px;
-            opacity: 0.8;
+            font-size: 10px;
+            opacity: 0.7;
+            line-height: 1.2;
         }
-
+        
+        /* Buttons */
+        .btn {
+            background: var(--ui-panel);
+            border: 2px solid var(--primary-green);
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--primary-green);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn:hover {
+            background: rgba(0, 255, 136, 0.15);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+            color: var(--background-dark);
+            border-color: var(--secondary-green);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--secondary-green), var(--primary-green));
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.6);
+        }
+        
+        .btn-danger {
+            border-color: var(--danger-red);
+            color: var(--danger-red);
+        }
+        
+        .btn-danger:hover {
+            background: rgba(255, 68, 68, 0.15);
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+        }
+        
+        /* Button groups */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 25px;
+        }
+        
+        /* Upgrade selection styles */
         .upgrade-selection {
             margin-top: 20px;
         }
-
+        
         .back-btn {
-            background: rgba(0, 0, 0, 0.5);
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 10px 20px;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
-
-        .back-btn:hover {
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-        }
-
+        
         .upgrade-grid {
-            display: flex;
-            gap: 10px;
-        }
-
-        .upgrade-item {
-            background: rgba(0, 0, 0, 0.5);
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 10px;
-            font-family: 'Courier New', monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            min-width: 100px;
-            transition: all 0.3s ease;
-        }
-
-        .upgrade-item:hover {
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-        }
-
-        .selected-upgrade {
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-        }
-
-        .pause-menu {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 25;
-            background: rgba(0, 0, 0, 0.95);
-            padding: 40px;
-            border-radius: 15px;
-            border: 3px solid #00ff00;
-            text-align: center;
-            display: none;
-            min-width: 300px;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
-        }
-
-        .pause-menu h2 {
-            color: #00ff00;
-            margin-top: 0;
-            margin-bottom: 30px;
-            font-size: 24px;
-            text-shadow: 0 0 10px #00ff00;
-        }
-
-        .pause-buttons {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            align-items: center;
+            margin-top: 15px;
         }
-
-        .pause-btn {
-            background: rgba(0, 0, 0, 0.7);
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            padding: 15px 30px;
-            font-family: 'Courier New', monospace;
-            font-size: 16px;
+        
+        .upgrade-item {
+            background: var(--ui-panel);
+            border: 2px solid var(--ui-border);
+            border-radius: 10px;
+            padding: 15px;
             cursor: pointer;
-            border-radius: 8px;
-            min-width: 200px;
             transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            text-align: center;
         }
-
-        .pause-btn:hover {
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        
+        .upgrade-item:hover {
+            background: rgba(0, 255, 136, 0.15);
+            border-color: var(--primary-green);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
             transform: translateY(-2px);
         }
-
-        .pause-btn img {
-            width: 24px;
-            height: 24px;
-            filter: brightness(0) saturate(100%) invert(50%) sepia(100%) saturate(2000%) hue-rotate(90deg);
+        
+        .upgrade-name {
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--primary-green);
+        }
+        
+        .upgrade-level {
+            font-size: 12px;
+            color: var(--accent-cyan);
+            margin-bottom: 5px;
+        }
+        
+        .upgrade-effect {
+            font-size: 11px;
+            opacity: 0.8;
+            line-height: 1.3;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .game-container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .modal {
+                min-width: 350px;
+                margin: 20px;
+            }
+            
+            .modal-title {
+                font-size: 24px;
+            }
+            
+            .final-score {
+                font-size: 36px;
+            }
+            
+            .category-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .upgrade-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .modal {
+                min-width: 300px;
+            }
+            
+            .category-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+        
+        /* Accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        /* High contrast mode */
+        @media (prefers-contrast: high) {
+            :root {
+                --primary-green: #00ff00;
+                --ui-border: rgba(0, 255, 0, 0.8);
+                --ui-panel: rgba(0, 0, 0, 0.9);
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Custom cursor -->
     <div class="custom-cursor" id="customCursor"></div>
     
+    <!-- Main game container -->
     <div class="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         
-
-
-
-
-        <div class="game-over" id="gameOver">
-            <h2>Oyun Bitti!</h2>
-            <div>Final Skoru: <span id="finalScore">0</span></div>
-            <button class="restart-btn" onclick="restartGame()">Yeniden Başla</button>
-        </div>
-
-        <div class="pause-menu" id="pauseMenu">
-            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-                <img src="images/paused.png" alt="Paused" style="width: 40px; height: 40px; margin-right: 15px; filter: brightness(0) saturate(100%) invert(50%) sepia(100%) saturate(2000%) hue-rotate(90deg);">
-                <h2 style="margin: 0; color: #00ff00; font-size: 24px; text-shadow: 0 0 10px #00ff00;">Oyun Duraklatıldı</h2>
-            </div>
-            <div class="pause-buttons">
-                <button class="pause-btn" onclick="resumeGame()">
-                    <img src="images/resume.png" alt="Resume">
-                    Devam Et
-                </button>
-                <button class="pause-btn" onclick="restartFromPause()">
-                    <img src="images/restart.png" alt="Restart">
-                    Yeniden Başla
-                </button>
+        <!-- Loading screen -->
+        <div class="loading-screen" id="loadingScreen">
+            <div class="loading-text">CODE SLICER</div>
+            <div class="loading-text" style="font-size: 16px; margin-bottom: 40px;">INITIALIZING SYSTEMS...</div>
+            <div class="loading-bar">
+                <div class="loading-progress" id="loadingProgress"></div>
             </div>
         </div>
-
-        <div class="upgrade-menu" id="upgradeMenu">
-            <h2>🎯 Seviye Atladın!</h2>
-            <div class="upgrade-info">Bir kategori seç ve güçlen:</div>
-            
-            <!-- Kategori Seçimi -->
-            <div class="category-selection" id="categorySelection">
-                <div class="category-grid">
-                    <button class="category-btn" onclick="showCategoryUpgrades('attack')" style="border-color: #ff4444;">
-                        <div class="category-icon">⚔️</div>
-                        <div class="category-name">Saldırı</div>
-                        <div class="category-desc">Hasar ve ateş gücü</div>
+        
+        <!-- Game Over Modal -->
+        <div class="modal game-over" id="gameOver">
+            <div class="modal-header">
+                <h2 class="modal-title" style="color: var(--danger-red);">MISSION FAILED</h2>
+            </div>
+            <div class="modal-content">
+                <div class="final-score" id="finalScore">0</div>
+                
+                <div class="game-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">LEVEL REACHED</div>
+                        <div class="stat-value" id="finalLevel">1</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">MAX COMBO</div>
+                        <div class="stat-value" id="finalCombo">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">ENEMIES DEFEATED</div>
+                        <div class="stat-value" id="finalEnemies">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">TIME SURVIVED</div>
+                        <div class="stat-value" id="finalTime">00:00</div>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="restartGame()">
+                        ⚡ RESTART MISSION
                     </button>
-                    <button class="category-btn" onclick="showCategoryUpgrades('defense')" style="border-color: #4444ff;">
-                        <div class="category-icon">🛡️</div>
-                        <div class="category-name">Savunma</div>
-                        <div class="category-desc">Dayanıklılık ve koruma</div>
-                    </button>
-                    <button class="category-btn" onclick="showCategoryUpgrades('mobility')" style="border-color: #ffff44;">
-                        <div class="category-icon">⚡</div>
-                        <div class="category-name">Hareket</div>
-                        <div class="category-desc">Hız ve çeviklik</div>
-                    </button>
-                    <button class="category-btn" onclick="showCategoryUpgrades('utility')" style="border-color: #44ff44;">
-                        <div class="category-icon">🔧</div>
-                        <div class="category-name">Yardımcı</div>
-                        <div class="category-desc">Özel yetenekler</div>
+                    <button class="btn" onclick="showMainMenu()">
+                        📊 VIEW STATS
                     </button>
                 </div>
             </div>
-            
-            <!-- Upgrade Seçimi -->
-            <div class="upgrade-selection" id="upgradeSelection" style="display: none;">
-                <button class="back-btn" onclick="showCategorySelection()">⬅️ Geri</button>
-                <h3 id="selectedCategoryTitle"></h3>
-                <div class="upgrade-grid" id="upgradeGrid">
-                    <!-- Dinamik olarak doldurulacak -->
+        </div>
+        
+        <!-- Pause Menu -->
+        <div class="modal pause-menu" id="pauseMenu">
+            <div class="modal-header">
+                <div class="pause-icon">⏸️</div>
+                <h2 class="modal-title">MISSION PAUSED</h2>
+            </div>
+            <div class="modal-content">
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="resumeGame()">
+                        ▶️ RESUME
+                    </button>
+                    <button class="btn" onclick="restartFromPause()">
+                        🔄 RESTART
+                    </button>
+                    <button class="btn" onclick="showSettings()">
+                        ⚙️ SETTINGS
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Upgrade Menu -->
+        <div class="modal upgrade-menu" id="upgradeMenu">
+            <div class="modal-header">
+                <h2 class="modal-title">🎯 LEVEL UP!</h2>
+            </div>
+            <div class="modal-content">
+                <div class="upgrade-info">Select an upgrade category to enhance your combat capabilities:</div>
+                
+                <!-- Category Selection -->
+                <div class="category-selection" id="categorySelection">
+                    <div class="category-grid">
+                        <button class="category-btn" onclick="showCategoryUpgrades('attack')">
+                            <div class="category-icon">⚔️</div>
+                            <div class="category-name">ATTACK</div>
+                            <div class="category-desc">Weapons & Damage</div>
+                        </button>
+                        <button class="category-btn" onclick="showCategoryUpgrades('defense')">
+                            <div class="category-icon">🛡️</div>
+                            <div class="category-name">DEFENSE</div>
+                            <div class="category-desc">Health & Armor</div>
+                        </button>
+                        <button class="category-btn" onclick="showCategoryUpgrades('mobility')">
+                            <div class="category-icon">⚡</div>
+                            <div class="category-name">MOBILITY</div>
+                            <div class="category-desc">Speed & Agility</div>
+                        </button>
+                        <button class="category-btn" onclick="showCategoryUpgrades('utility')">
+                            <div class="category-icon">🔧</div>
+                            <div class="category-name">UTILITY</div>
+                            <div class="category-desc">Special Abilities</div>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Upgrade Selection -->
+                <div class="upgrade-selection" id="upgradeSelection" style="display: none;">
+                    <button class="btn back-btn" onclick="showCategorySelection()">⬅️ BACK</button>
+                    <h3 id="selectedCategoryTitle" class="modal-title" style="font-size: 20px; margin-bottom: 15px;"></h3>
+                    <div class="upgrade-grid" id="upgradeGrid">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings Menu -->
+        <div class="modal" id="settingsMenu">
+            <div class="modal-header">
+                <h2 class="modal-title">⚙️ SETTINGS</h2>
+            </div>
+            <div class="modal-content">
+                <div class="settings-grid">
+                    <div class="setting-group">
+                        <label class="setting-label">Master Volume</label>
+                        <input type="range" class="setting-slider" id="masterVolume" min="0" max="100" value="100">
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-label">SFX Volume</label>
+                        <input type="range" class="setting-slider" id="sfxVolume" min="0" max="100" value="70">
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-label">Music Volume</label>
+                        <input type="range" class="setting-slider" id="musicVolume" min="0" max="100" value="40">
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="hideSettings()">✅ APPLY</button>
+                    <button class="btn" onclick="resetSettings()">🔄 RESET</button>
                 </div>
             </div>
         </div>
     </div>
-
+    
+    <!-- Game script -->
     <script src="game.js"></script>
+    
+    <!-- Additional UI scripts -->
+    <script>
+        // UI Helper functions
+        function showMainMenu() {
+            // Implementation for main menu
+            console.log('Show main menu');
+        }
+        
+        function showSettings() {
+            document.getElementById('pauseMenu').style.display = 'none';
+            document.getElementById('settingsMenu').style.display = 'block';
+        }
+        
+        function hideSettings() {
+            document.getElementById('settingsMenu').style.display = 'none';
+            document.getElementById('pauseMenu').style.display = 'block';
+        }
+        
+        function resetSettings() {
+            document.getElementById('masterVolume').value = 100;
+            document.getElementById('sfxVolume').value = 70;
+            document.getElementById('musicVolume').value = 40;
+            
+            // Apply to audio manager if available
+            if (window.audioManager) {
+                audioManager.masterVolume = 1.0;
+                audioManager.sfxVolume = 0.7;
+                audioManager.musicVolume = 0.4;
+            }
+        }
+        
+        // Volume control handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            const masterVolumeSlider = document.getElementById('masterVolume');
+            const sfxVolumeSlider = document.getElementById('sfxVolume');
+            const musicVolumeSlider = document.getElementById('musicVolume');
+            
+            masterVolumeSlider.addEventListener('input', (e) => {
+                if (window.audioManager) {
+                    audioManager.masterVolume = e.target.value / 100;
+                }
+            });
+            
+            sfxVolumeSlider.addEventListener('input', (e) => {
+                if (window.audioManager) {
+                    audioManager.sfxVolume = e.target.value / 100;
+                }
+            });
+            
+            musicVolumeSlider.addEventListener('input', (e) => {
+                if (window.audioManager) {
+                    audioManager.musicVolume = e.target.value / 100;
+                }
+            });
+        });
+        
+        // Loading screen management
+        function updateLoadingProgress(percent) {
+            const progressBar = document.getElementById('loadingProgress');
+            if (progressBar) {
+                progressBar.style.width = percent + '%';
+            }
+        }
+        
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }
+        }
+        
+        // Animate loading progress
+        let loadingProgress = 0;
+        const loadingInterval = setInterval(() => {
+            loadingProgress += Math.random() * 10;
+            if (loadingProgress >= 100) {
+                loadingProgress = 100;
+                clearInterval(loadingInterval);
+                setTimeout(hideLoadingScreen, 1000);
+            }
+            updateLoadingProgress(loadingProgress);
+        }, 200);
+    </script>
 </body>
-</html> 
+</html>
