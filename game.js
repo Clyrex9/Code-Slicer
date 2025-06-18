@@ -1952,20 +1952,455 @@ function getEnemyData(type) {
     return enemyTypes[type] || enemyTypes.error1;
 }
 
-// Upgrade system placeholders
+// =============================================================================
+// ENHANCED UPGRADE SYSTEM
+// =============================================================================
+
+const upgradeDetails = {
+    // Attack upgrades
+    multiShot: {
+        name: "Multi-Shot",
+        icon: "🔫",
+        levels: ["Single shot", "Double shot", "Triple shot", "Quad shot"],
+        effects: [1, 2, 3, 4],
+        description: ["Fire one bullet", "Fire two bullets", "Fire three bullets", "Fire four bullets"]
+    },
+    directionalShot: {
+        name: "Directional Shot",
+        icon: "🎯",
+        levels: ["Single direction", "Dual direction", "Quad direction", "Omni direction"],
+        effects: [1, 2, 4, 8],
+        description: ["Fire in one direction", "Fire forward and back", "Fire in four directions", "Fire in all directions"]
+    },
+    bulletSpeed: {
+        name: "Velocity Boost",
+        icon: "⚡",
+        levels: ["Normal speed", "Fast bullets", "Rapid bullets", "Lightning bullets"],
+        effects: [8, 12, 16, 24],
+        description: ["Standard bullet speed", "+50% bullet speed", "+100% bullet speed", "+200% bullet speed"]
+    },
+    bulletSize: {
+        name: "Power Amplifier",
+        icon: "💥",
+        levels: ["Standard rounds", "Heavy rounds", "Cannon rounds", "Artillery rounds"],
+        effects: [8, 12, 16, 24],
+        description: ["Normal damage", "+50% damage", "+100% damage", "+200% damage"]
+    },
+    fireRate: {
+        name: "Rate of Fire",
+        icon: "🔥",
+        levels: ["Standard rate", "Rapid fire", "Machine gun", "Minigun"],
+        effects: [250, 180, 120, 80],
+        description: ["Normal fire rate", "+40% fire rate", "+100% fire rate", "+200% fire rate"]
+    },
+    piercing: {
+        name: "Armor Piercing",
+        icon: "🏹",
+        levels: ["No piercing", "Pierce 2", "Pierce 3", "Pierce all"],
+        effects: [1, 2, 3, 999],
+        description: ["Bullets stop on hit", "Pierce 2 enemies", "Pierce 3 enemies", "Pierce all enemies"]
+    },
+    explosive: {
+        name: "Explosive Rounds",
+        icon: "💣",
+        levels: ["Standard bullets", "Small explosions", "Large explosions", "Massive explosions"],
+        effects: [0, 30, 50, 80],
+        description: ["No explosion", "Small blast radius", "Large blast radius", "Massive blast radius"]
+    },
+    homingShots: {
+        name: "Smart Targeting",
+        icon: "🎯",
+        levels: ["Straight shots", "Slight homing", "Strong homing", "Perfect tracking"],
+        effects: [0, 0.02, 0.05, 0.1],
+        description: ["No tracking", "Weak enemy tracking", "Strong enemy tracking", "Perfect enemy tracking"]
+    },
+    criticalHit: {
+        name: "Critical Strike",
+        icon: "⚔️",
+        levels: ["No criticals", "10% crit chance", "20% crit chance", "35% crit chance"],
+        effects: [0, 0.1, 0.2, 0.35],
+        description: ["No critical hits", "10% chance for 3x damage", "20% chance for 3x damage", "35% chance for 3x damage"]
+    },
+    weaponType: {
+        name: "Weapon Mastery",
+        icon: "🔧",
+        levels: ["Basic cannon", "Rapid fire", "Shotgun", "Rocket launcher"],
+        effects: [0, 1, 2, 3],
+        description: ["Standard weapon", "Unlock rapid fire", "Unlock shotgun", "Unlock rocket launcher"]
+    },
+
+    // Defense upgrades
+    health: {
+        name: "Vital Enhancement",
+        icon: "❤️",
+        levels: ["100 HP", "150 HP", "200 HP", "300 HP"],
+        effects: [100, 150, 200, 300],
+        description: ["Base health", "+50% max health", "+100% max health", "+200% max health"]
+    },
+    shield: {
+        name: "Energy Shield",
+        icon: "🛡️",
+        levels: ["No shield", "Basic shield", "Strong shield", "Fortress shield"],
+        effects: [0, 50, 100, 200],
+        description: ["No shield protection", "50 point shield", "100 point shield", "200 point shield"]
+    },
+    regeneration: {
+        name: "Auto-Repair",
+        icon: "🔄",
+        levels: ["No regen", "Slow regen", "Fast regen", "Rapid regen"],
+        effects: [0, 0.5, 1, 2],
+        description: ["No health regeneration", "Slow health recovery", "Fast health recovery", "Rapid health recovery"]
+    },
+    armor: {
+        name: "Damage Reduction",
+        icon: "🛡️",
+        levels: ["No armor", "Light armor", "Heavy armor", "Fortress armor"],
+        effects: [0, 0.15, 0.25, 0.4],
+        description: ["No damage reduction", "15% damage reduction", "25% damage reduction", "40% damage reduction"]
+    },
+    invincibility: {
+        name: "I-Frames",
+        icon: "👻",
+        levels: ["No i-frames", "Short i-frames", "Medium i-frames", "Long i-frames"],
+        effects: [500, 750, 1000, 1500],
+        description: ["0.5s invulnerability", "0.75s invulnerability", "1s invulnerability", "1.5s invulnerability"]
+    },
+    thorns: {
+        name: "Retaliation",
+        icon: "🌹",
+        levels: ["No thorns", "Light thorns", "Sharp thorns", "Deadly thorns"],
+        effects: [0, 0.25, 0.5, 1.0],
+        description: ["No damage reflection", "25% damage reflection", "50% damage reflection", "100% damage reflection"]
+    },
+    magneticField: {
+        name: "Repulsion Field",
+        icon: "🧲",
+        levels: ["No field", "Weak field", "Strong field", "Fortress field"],
+        effects: [0, 20, 40, 80],
+        description: ["No enemy repulsion", "Weak enemy pushback", "Strong enemy pushback", "Massive enemy pushback"]
+    },
+    absorption: {
+        name: "Energy Absorption",
+        icon: "⚡",
+        levels: ["No absorption", "Light absorption", "Strong absorption", "Perfect absorption"],
+        effects: [0, 0.1, 0.2, 0.4],
+        description: ["No damage absorption", "10% damage to shield", "20% damage to shield", "40% damage to shield"]
+    },
+
+    // Mobility upgrades  
+    speed: {
+        name: "Movement Speed",
+        icon: "💨",
+        levels: ["Normal speed", "Fast movement", "Very fast", "Lightning speed"],
+        effects: [2.5, 3.5, 4.5, 6],
+        description: ["Standard movement", "+40% movement speed", "+80% movement speed", "+140% movement speed"]
+    },
+    dash: {
+        name: "Dash Ability",
+        icon: "🏃",
+        levels: ["No dash", "Short dash", "Long dash", "Teleport dash"],
+        effects: [0, 80, 120, 200],
+        description: ["No dash ability", "Short distance dash", "Long distance dash", "Teleport-like dash"]
+    },
+    teleport: {
+        name: "Phase Step",
+        icon: "🌀",
+        levels: ["No teleport", "Mouse teleport", "Random teleport", "Combat teleport"],
+        effects: [0, 1, 2, 3],
+        description: ["No teleportation", "Teleport to mouse", "Random teleportation", "Combat teleportation"]
+    },
+    ghostMode: {
+        name: "Phase Mode",
+        icon: "👻",
+        levels: ["No phasing", "Brief phasing", "Long phasing", "Extended phasing"],
+        effects: [0, 1000, 2000, 3000],
+        description: ["No ghost mode", "1s ghost mode", "2s ghost mode", "3s ghost mode"]
+    },
+    wallBounce: {
+        name: "Wall Jump",
+        icon: "🏀",
+        levels: ["Wall collision", "Single bounce", "Double bounce", "Infinite bounce"],
+        effects: [0, 1, 2, 999],
+        description: ["Stop at walls", "Bounce once off walls", "Bounce twice", "Unlimited wall bouncing"]
+    },
+    phaseShift: {
+        name: "Dodge Chance",
+        icon: "🌟",
+        levels: ["No dodging", "10% dodge", "20% dodge", "35% dodge"],
+        effects: [0, 0.1, 0.2, 0.35],
+        description: ["No damage dodging", "10% chance to avoid damage", "20% chance to avoid damage", "35% chance to avoid damage"]
+    },
+    timeSlowdown: {
+        name: "Bullet Time",
+        icon: "⏰",
+        levels: ["Normal time", "Slight slowdown", "Strong slowdown", "Matrix mode"],
+        effects: [1.0, 0.8, 0.6, 0.3],
+        description: ["Normal game speed", "20% slowdown in combat", "40% slowdown in combat", "70% slowdown in combat"]
+    },
+    doubleJump: {
+        name: "Air Mobility",
+        icon: "🚁",
+        levels: ["Ground only", "Air dash", "Double dash", "Flight mode"],
+        effects: [0, 1, 2, 3],
+        description: ["No air movement", "Dash in air", "Double air dash", "Flight-like movement"]
+    },
+
+    // Utility upgrades
+    scanner: {
+        name: "Threat Scanner",
+        icon: "📡",
+        levels: ["No scanner", "Enemy scanner", "Item scanner", "Full scanner"],
+        effects: [0, 1, 2, 3],
+        description: ["No threat detection", "See enemy positions", "See items and enemies", "Full battlefield awareness"]
+    },
+    autoTarget: {
+        name: "Auto-Targeting",
+        icon: "🎯",
+        levels: ["Manual aim", "Closest target", "Strongest target", "Smart targeting"],
+        effects: [0, 1, 2, 3],
+        description: ["Manual targeting only", "Auto-target closest enemy", "Auto-target strongest enemy", "Intelligent target selection"]
+    },
+    scoreMultiplier: {
+        name: "Score Amplifier",
+        icon: "💰",
+        levels: ["Normal score", "1.5x score", "2x score", "3x score"],
+        effects: [1, 1.5, 2, 3],
+        description: ["Standard point values", "50% more points", "Double points", "Triple points"]
+    },
+    bonusSpawn: {
+        name: "Bonus Frequency",
+        icon: "🎁",
+        levels: ["Normal spawns", "More bonuses", "Many bonuses", "Bonus storm"],
+        effects: [5000, 3500, 2000, 1000],
+        description: ["Standard bonus rate", "40% more bonuses", "150% more bonuses", "400% more bonuses"]
+    },
+    experienceBoost: {
+        name: "XP Multiplier",
+        icon: "📈",
+        levels: ["Normal XP", "1.5x XP", "2x XP", "3x XP"],
+        effects: [1, 1.5, 2, 3],
+        description: ["Standard experience", "50% more XP", "Double XP", "Triple XP"]
+    },
+    magnet: {
+        name: "Item Magnet",
+        icon: "🧲",
+        levels: ["No magnet", "Weak magnet", "Strong magnet", "Super magnet"],
+        effects: [0, 1, 2, 3],
+        description: ["No item attraction", "Small pickup radius", "Large pickup radius", "Massive pickup radius"]
+    },
+    companion: {
+        name: "AI Companion",
+        icon: "🤖",
+        levels: ["Solo play", "Support drone", "Combat drone", "Elite squadron"],
+        effects: [0, 1, 2, 3],
+        description: ["Fight alone", "Helper drone", "Combat assistant", "Full AI squadron"]
+    },
+    overcharge: {
+        name: "Power Surge",
+        icon: "⚡",
+        levels: ["No surge", "Damage surge", "Speed surge", "Ultimate surge"],
+        effects: [0, 1, 2, 3],
+        description: ["No temporary boost", "Damage boost ability", "Speed boost ability", "All-stats boost"]
+    }
+};
+
 function showCategorySelection() {
     document.getElementById('categorySelection').style.display = 'block';
     document.getElementById('upgradeSelection').style.display = 'none';
 }
 
 function showCategoryUpgrades(category) {
-    // Implementation will be added in next phase
-    console.log(`Showing upgrades for category: ${category}`);
+    document.getElementById('categorySelection').style.display = 'none';
+    document.getElementById('upgradeSelection').style.display = 'block';
+    
+    const categoryData = {
+        attack: { name: "⚔️ ATTACK SYSTEMS", color: "#ff4444" },
+        defense: { name: "🛡️ DEFENSE SYSTEMS", color: "#4444ff" },
+        mobility: { name: "⚡ MOBILITY SYSTEMS", color: "#ffff44" },
+        utility: { name: "🔧 UTILITY SYSTEMS", color: "#44ff44" }
+    };
+    
+    const selectedCategory = categoryData[category];
+    document.getElementById('selectedCategoryTitle').textContent = selectedCategory.name;
+    document.getElementById('selectedCategoryTitle').style.color = selectedCategory.color;
+    
+    const upgradeGrid = document.getElementById('upgradeGrid');
+    upgradeGrid.innerHTML = '';
+    
+    // Get available upgrades for this category
+    const categoryUpgrades = upgrades[category];
+    
+    Object.keys(categoryUpgrades).forEach(upgradeKey => {
+        const currentLevel = categoryUpgrades[upgradeKey];
+        const upgradeInfo = upgradeDetails[upgradeKey];
+        
+        if (upgradeInfo && currentLevel < 3) { // Max level is 3
+            const upgradeDiv = document.createElement('div');
+            upgradeDiv.className = 'upgrade-item';
+            upgradeDiv.onclick = () => selectCategoryUpgrade(category, upgradeKey);
+            
+            const nextLevel = currentLevel + 1;
+            const nextLevelText = upgradeInfo.levels[nextLevel];
+            const nextLevelDesc = upgradeInfo.description[nextLevel];
+            
+            upgradeDiv.innerHTML = `
+                <div class="upgrade-icon" style="font-size: 24px; margin-bottom: 8px;">${upgradeInfo.icon}</div>
+                <div class="upgrade-name">${upgradeInfo.name}</div>
+                <div class="upgrade-level">Level ${currentLevel} → ${nextLevel}</div>
+                <div class="upgrade-effect">${nextLevelText}</div>
+                <div class="upgrade-desc" style="font-size: 9px; margin-top: 5px; opacity: 0.6;">${nextLevelDesc}</div>
+            `;
+            
+            upgradeGrid.appendChild(upgradeDiv);
+        }
+    });
+    
+    // Show maxed out upgrades with different styling
+    Object.keys(categoryUpgrades).forEach(upgradeKey => {
+        const currentLevel = categoryUpgrades[upgradeKey];
+        const upgradeInfo = upgradeDetails[upgradeKey];
+        
+        if (upgradeInfo && currentLevel >= 3) {
+            const upgradeDiv = document.createElement('div');
+            upgradeDiv.className = 'upgrade-item maxed-upgrade';
+            upgradeDiv.style.opacity = '0.6';
+            upgradeDiv.style.cursor = 'not-allowed';
+            upgradeDiv.style.borderColor = '#888888';
+            
+            upgradeDiv.innerHTML = `
+                <div class="upgrade-icon" style="font-size: 24px; margin-bottom: 8px;">${upgradeInfo.icon}</div>
+                <div class="upgrade-name">${upgradeInfo.name}</div>
+                <div class="upgrade-level" style="color: #ffff00;">MAX LEVEL</div>
+                <div class="upgrade-effect">${upgradeInfo.levels[3]}</div>
+                <div class="upgrade-desc" style="font-size: 9px; margin-top: 5px; opacity: 0.6;">Fully upgraded!</div>
+            `;
+            
+            upgradeGrid.appendChild(upgradeDiv);
+        }
+    });
 }
 
-function selectCategoryUpgrade(category, upgrade) {
-    // Implementation will be added in next phase
-    console.log(`Selected upgrade: ${category}.${upgrade}`);
+function selectCategoryUpgrade(category, upgradeKey) {
+    // Check if upgrade is already maxed
+    if (upgrades[category][upgradeKey] >= 3) return;
+    
+    // Increase upgrade level
+    upgrades[category][upgradeKey] = Math.min(upgrades[category][upgradeKey] + 1, 3);
+    
+    // Close upgrade menu and resume game
+    gameState.showUpgrade = false;
+    gameState.paused = false;
+    document.getElementById('upgradeMenu').style.display = 'none';
+    
+    // Apply upgrade effects immediately
+    applyUpgradeEffects();
+    
+    // Show upgrade notification
+    showUpgradeNotification(category, upgradeKey);
+    
+    // Resume background music
+    if (audioManager) {
+        audioManager.playMusic('gameMusic1');
+    }
+    
+    // Return to category selection for next level
+    showCategorySelection();
+    
+    // Resume game loop
+    gameLoop();
+}
+
+function applyUpgradeEffects() {
+    // Apply health upgrades
+    if (upgrades.defense.health > 0) {
+        const newMaxHealth = upgradeDetails.health.effects[upgrades.defense.health];
+        const healthRatio = gameState.health / gameState.maxHealth;
+        gameState.maxHealth = newMaxHealth;
+        // Heal player proportionally when upgrading health
+        gameState.health = Math.min(gameState.health + 25, gameState.maxHealth);
+    }
+    
+    // Apply shield upgrades
+    if (upgrades.defense.shield > 0) {
+        const newMaxShield = upgradeDetails.shield.effects[upgrades.defense.shield];
+        gameState.maxShield = newMaxShield;
+        gameState.shield = newMaxShield; // Full shield on upgrade
+    }
+    
+    // Apply speed upgrades
+    if (upgrades.mobility.speed > 0) {
+        player.speed = upgradeDetails.speed.effects[upgrades.mobility.speed];
+    }
+    
+    // Apply weapon upgrades
+    if (upgrades.attack.weaponType > 0) {
+        const weaponTypes = ['basic', 'rapidfire', 'shotgun', 'explosive'];
+        const newWeapon = weaponTypes[upgrades.attack.weaponType];
+        if (weaponSystem && newWeapon) {
+            weaponSystem.switchWeapon(newWeapon);
+        }
+    }
+}
+
+function showUpgradeNotification(category, upgradeKey) {
+    const upgradeInfo = upgradeDetails[upgradeKey];
+    const level = upgrades[category][upgradeKey];
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 255, 136, 0.9);
+        color: #000;
+        padding: 15px 20px;
+        border-radius: 10px;
+        font-family: 'Orbitron', monospace;
+        font-weight: bold;
+        font-size: 14px;
+        z-index: 1000;
+        animation: slideInRight 0.5s ease, fadeOut 0.5s ease 2.5s;
+        pointer-events: none;
+        max-width: 300px;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    `;
+    
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">${upgradeInfo.icon}</span>
+            <div>
+                <div style="font-size: 16px;">${upgradeInfo.name}</div>
+                <div style="font-size: 12px; opacity: 0.8;">Level ${level} - ${upgradeInfo.levels[level]}</div>
+            </div>
+        </div>
+    `;
+    
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(notification);
+    
+    // Remove notification after animation
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+        if (style.parentNode) {
+            style.parentNode.removeChild(style);
+        }
+    }, 3000);
 }
 
 function restartGame() {
