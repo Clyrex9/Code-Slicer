@@ -10,11 +10,38 @@ const sounds = {
     backVocal: new Audio('sounds/backvocal.mp3')
 };
 
+// Müzik sistemi
+const music = {
+    // Orta tempo - genel oyun müziği
+    game1: new Audio('sounds/music1.mp3'),
+    game2: new Audio('sounds/music2.mp3'),
+    // Yüksek tempo - yoğun anlar
+    intense1: new Audio('sounds/music3.mp3'),
+    intense2: new Audio('sounds/music4.mp3'),
+    // Düşük tempo - menüler ve sakin anlar
+    menu1: new Audio('sounds/music5.mp3'),
+    menu2: new Audio('sounds/music6.mp3')
+};
+
 // Ses ayarları
 sounds.typing.volume = 0.3;
 sounds.bullet.volume = 0.2;
 sounds.errorStart.volume = 0.4;
 sounds.backVocal.volume = 0.15;
+
+// Müzik ayarları
+Object.values(music).forEach(track => {
+    track.volume = 0.25; // Genel müzik seviyesi
+    track.loop = true; // Müzikler döngüde çalsın
+});
+
+// Müzik durumu
+let currentMusic = null;
+let musicState = {
+    currentTrack: null,
+    gamePhase: 'menu', // 'menu', 'game', 'intense', 'upgrade'
+    lastMusicChange: 0
+};
 
 // Rastgele ses çalma için zamanlayıcı
 let lastBackVocalTime = 0;
@@ -52,6 +79,78 @@ function playErrorStartSound() {
     }
 }
 
+// Müzik kontrol fonksiyonları
+function stopCurrentMusic() {
+    if (currentMusic) {
+        currentMusic.pause();
+        currentMusic.currentTime = 0;
+        currentMusic = null;
+    }
+}
+
+function playMusic(trackName) {
+    try {
+        const track = music[trackName];
+        if (track && track !== currentMusic) {
+            stopCurrentMusic();
+            currentMusic = track;
+            musicState.currentTrack = trackName;
+            track.currentTime = 0;
+            track.play().catch(e => console.log('Müzik çalma hatası:', e));
+        }
+    } catch (e) {
+        console.log('Müzik hatası:', e);
+    }
+}
+
+function updateMusicPhase() {
+    const currentTime = Date.now();
+    
+    // Müzik değişim kontrolü (minimum 10 saniye aralık)
+    if (currentTime - musicState.lastMusicChange < 10000) return;
+    
+    let newPhase = musicState.gamePhase;
+    
+    // Oyun durumuna göre müzik fazı belirleme
+    if (gameState.showUpgrade || !gameState.running) {
+        newPhase = 'menu';
+    } else if (gameState.running && !gameState.paused) {
+        // Oyun zamanına ve düşman yoğunluğuna göre
+        const timeMinutes = gameState.gameTime / 60000;
+        const enemyCount = enemies.length;
+        
+        // Yoğun anlar: 2+ dakika ve çok düşman
+        if (timeMinutes > 2 && enemyCount > 8) {
+            newPhase = 'intense';
+        } else if (timeMinutes > 5 && enemyCount > 12) {
+            newPhase = 'intense';
+        } else {
+            newPhase = 'game';
+        }
+    }
+    
+    // Faz değişikliği varsa müziği değiştir
+    if (newPhase !== musicState.gamePhase) {
+        musicState.gamePhase = newPhase;
+        musicState.lastMusicChange = currentTime;
+        
+        switch (newPhase) {
+            case 'menu':
+                // Düşük tempo müzikler (upgrade menüsü, oyun sonu)
+                playMusic(Math.random() < 0.5 ? 'menu1' : 'menu2');
+                break;
+            case 'game':
+                // Orta tempo müzikler (normal oyun)
+                playMusic(Math.random() < 0.5 ? 'game1' : 'game2');
+                break;
+            case 'intense':
+                // Yüksek tempo müzikler (yoğun anlar)
+                playMusic(Math.random() < 0.5 ? 'intense1' : 'intense2');
+                break;
+        }
+    }
+}
+
 // Oyun durumu
 let gameState = {
     running: true,
@@ -59,6 +158,8 @@ let gameState = {
     score: 0,
     health: 100,
     maxHealth: 100,
+    shield: 0,
+    maxShield: 0,
     level: 1,
     nextLevelScore: 100,
     showUpgrade: false,
@@ -305,7 +406,8 @@ const errorTypes = {
     error1: { damage: 5, speed: 0.3, points: 3, size: 25, health: 1, image: null },
     error2: { damage: 10, speed: 0.5, points: 7, size: 30, health: 2, image: null },
     error3: { damage: 15, speed: 0.7, points: 12, size: 35, health: 3, image: null },
-    error4: { damage: 25, speed: 1.0, points: 20, size: 40, health: 4, image: null }
+    error4: { damage: 25, speed: 1.0, points: 20, size: 40, health: 4, image: null },
+    error5: { damage: 50, speed: 0.8, points: 100, size: 60, health: 15, image: null, isBoss: true }
 };
 
 // Error görsellerini yükle
@@ -347,6 +449,11 @@ document.addEventListener('keydown', (e) => {
     
     if (e.code === 'Escape') {
         togglePause();
+    }
+    
+    // Dash yeteneği - Shift tuşu
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        performDash();
     }
     
     // WASD ile ateş etme
@@ -416,6 +523,11 @@ function startGame() {
     gameState.running = true;
     gameState.paused = false;
     lastTime = Date.now();
+    
+    // İlk müziği başlat (oyun müziği)
+    musicState.gamePhase = 'game';
+    playMusic('game1');
+    
     gameLoop();
 }
 
@@ -440,8 +552,18 @@ function gameLoop() {
     updateBonuses();
     updateParticles();
     
+    // Can yenilenmesi
+    if (upgrades.defense.regeneration > 0) {
+        const regenRate = upgradeDetails.regeneration.effects[upgrades.defense.regeneration];
+        const regenAmount = regenRate * (deltaTime / 1000); // Saniye başına regen
+        gameState.health = Math.min(gameState.maxHealth, gameState.health + regenAmount);
+    }
+    
     // Rastgele back vocal çal
     playRandomBackVocal();
+    
+    // Müzik fazını güncelle
+    updateMusicPhase();
     
     draw();
     
@@ -497,13 +619,50 @@ function updatePlayer() {
     player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
 }
 
+// Dash yeteneği
+let lastDashTime = 0;
+function performDash() {
+    if (upgrades.mobility.dash === 0) return;
+    
+    const currentTime = Date.now();
+    if (currentTime - lastDashTime < 1000) return; // 1 saniye cooldown
+    
+    const dashDistance = upgradeDetails.dash.effects[upgrades.mobility.dash];
+    
+    // Mouse yönünde dash yap
+    if (mouse.isMoving) {
+        const dx = mouse.x - (player.x + player.width / 2);
+        const dy = mouse.y - (player.y + player.height / 2);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0) {
+            const dashX = (dx / distance) * dashDistance;
+            const dashY = (dy / distance) * dashDistance;
+            
+            player.x += dashX;
+            player.y += dashY;
+            
+            // Sınırlar içinde tut
+            player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+            player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+            
+            lastDashTime = currentTime;
+            
+            // Dash particle efekti
+            createParticles(player.x + player.width/2, player.y + player.height/2, '#ffff44', 12);
+        }
+    }
+}
+
 // Belirli yöne ateş etme
 function shootDirection(direction) {
     if (gameState.paused) return;
     
-    // Fire rate kontrolü (150ms minimum aralık)
+    // Fire rate kontrolü (upgrade'e göre değişken)
     const currentTime = Date.now();
-    if (currentTime - gameState.lastFireTime < 150) return;
+    const fireRateMultiplier = upgradeDetails.fireRate.effects[upgrades.attack.fireRate];
+    const fireRateDelay = 150 * fireRateMultiplier; // Base 150ms * multiplier
+    if (currentTime - gameState.lastFireTime < fireRateDelay) return;
     gameState.lastFireTime = currentTime;
     
     // Typing sesi çal
@@ -530,9 +689,11 @@ function shootDirection(direction) {
 function shoot() {
     if (gameState.paused) return;
     
-    // Fire rate kontrolü (150ms minimum aralık)
+    // Fire rate kontrolü (upgrade'e göre değişken)
     const currentTime = Date.now();
-    if (currentTime - gameState.lastFireTime < 150) return;
+    const fireRateMultiplier = upgradeDetails.fireRate.effects[upgrades.attack.fireRate];
+    const fireRateDelay = 150 * fireRateMultiplier; // Base 150ms * multiplier
+    if (currentTime - gameState.lastFireTime < fireRateDelay) return;
     gameState.lastFireTime = currentTime;
     
     // Typing sesi çal
@@ -707,6 +868,42 @@ function createDirectionalBullets(bulletData, singleDirection = null) {
 // Mermi güncelleme
 function updateBullets() {
     bullets = bullets.filter(bullet => {
+        // Homing (takipçi) özelliği
+        if (bullet.homing > 0 && enemies.length > 0) {
+            // En yakın düşmanı bul
+            let closestEnemy = null;
+            let closestDistance = Infinity;
+            
+            for (let enemy of enemies) {
+                const dx = (enemy.x + enemy.width/2) - bullet.x;
+                const dy = (enemy.y + enemy.height/2) - bullet.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestEnemy = enemy;
+                }
+            }
+            
+            // En yakın düşmana doğru yönlendir
+            if (closestEnemy) {
+                const dx = (closestEnemy.x + closestEnemy.width/2) - bullet.x;
+                const dy = (closestEnemy.y + closestEnemy.height/2) - bullet.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    const homingStrength = bullet.homing;
+                    bullet.dx += (dx / distance) * homingStrength;
+                    bullet.dy += (dy / distance) * homingStrength;
+                    
+                    // Hızı normalize et
+                    const currentSpeed = Math.sqrt(bullet.dx * bullet.dx + bullet.dy * bullet.dy);
+                    bullet.dx = (bullet.dx / currentSpeed) * bullet.speed;
+                    bullet.dy = (bullet.dy / currentSpeed) * bullet.speed;
+                }
+            }
+        }
+        
         bullet.x += bullet.dx;
         bullet.y += bullet.dy;
         
@@ -806,16 +1003,71 @@ function checkCollisions() {
                 bullets[i].y < enemies[j].y + enemies[j].height &&
                 bullets[i].y + bullets[i].height > enemies[j].y) {
                 
-                // Enemy'ye hasar ver
-                enemies[j].health -= 1;
+                // Enemy'ye hasar ver (kritik vuruş kontrolü)
+                let damage = 1;
+                if (upgrades.utility.criticalHit > 0) {
+                    const critChance = upgradeDetails.criticalHit.effects[upgrades.utility.criticalHit];
+                    if (Math.random() < critChance) {
+                        damage = 3; // Kritik vuruş 3x hasar
+                        createParticles(enemies[j].x + enemies[j].width/2, enemies[j].y + enemies[j].height/2, '#ffff00', 6);
+                    }
+                }
+                enemies[j].health -= damage;
                 
-                // Mermiyi kaldır
-                bullets.splice(i, 1);
+                // Piercing kontrolü
+                if (bullets[i]) {
+                    bullets[i].hitCount = (bullets[i].hitCount || 0) + 1;
+                    const maxHits = bullets[i].piercing || 1;
+                    
+                    // Maksimum hit sayısına ulaştıysa mermiyi kaldır
+                    if (bullets[i].hitCount >= maxHits) {
+                        bullets.splice(i, 1);
+                    }
+                }
+                
+                // Explosive (patlayıcı) kontrolü
+                if (bullets[i] && bullets[i].explosive > 0) {
+                    const explosionRadius = bullets[i].explosive;
+                    const explosionX = enemies[j].x + enemies[j].width/2;
+                    const explosionY = enemies[j].y + enemies[j].height/2;
+                    
+                    // Yakındaki düşmanlara hasar ver
+                    for (let k = enemies.length - 1; k >= 0; k--) {
+                        if (k !== j) {
+                            const dx = (enemies[k].x + enemies[k].width/2) - explosionX;
+                            const dy = (enemies[k].y + enemies[k].height/2) - explosionY;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance <= explosionRadius) {
+                                enemies[k].health -= 1;
+                                if (enemies[k].health <= 0) {
+                                    let points = enemies[k].points;
+                                    if (upgrades.utility.doubleScore > 0) {
+                                        const scoreMultiplier = upgradeDetails.doubleScore.effects[upgrades.utility.doubleScore];
+                                        points = Math.floor(points * scoreMultiplier);
+                                    }
+                                    gameState.score += points;
+                                    createParticles(enemies[k].x + enemies[k].width/2, enemies[k].y + enemies[k].height/2, '#ff8800');
+                                    enemies.splice(k, 1);
+                                    if (k < j) j--; // Index düzeltmesi
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Patlama efekti
+                    createParticles(explosionX, explosionY, '#ff8800', 15);
+                }
                 
                 // Enemy öldü mü kontrol et
                 if (enemies[j].health <= 0) {
-                    // Enemy türüne göre puan ver
-                    gameState.score += enemies[j].points;
+                    // Enemy türüne göre puan ver (skor çarpanı ile)
+                    let points = enemies[j].points;
+                    if (upgrades.utility.doubleScore > 0) {
+                        const scoreMultiplier = upgradeDetails.doubleScore.effects[upgrades.utility.doubleScore];
+                        points = Math.floor(points * scoreMultiplier);
+                    }
+                    gameState.score += points;
                     
                     // Parçacık efekti
                     createParticles(enemies[j].x + enemies[j].width/2, enemies[j].y + enemies[j].height/2, '#ff0000');
@@ -838,8 +1090,27 @@ function checkCollisions() {
             player.y < enemies[i].y + enemies[i].height &&
             player.y + player.height > enemies[i].y) {
             
-            // Enemy türüne göre hasar ver
-            gameState.health -= enemies[i].damage;
+            // Enemy türüne göre hasar ver (armor ile azaltılmış)
+            let damage = enemies[i].damage;
+            if (upgrades.defense.armor > 0) {
+                const armorReduction = upgradeDetails.armor.effects[upgrades.defense.armor];
+                damage = damage * (1 - armorReduction);
+            }
+            damage = Math.ceil(damage);
+            
+            // Önce kalkan hasar alsın
+            if (gameState.shield > 0) {
+                if (damage <= gameState.shield) {
+                    gameState.shield -= damage;
+                    damage = 0;
+                } else {
+                    damage -= gameState.shield;
+                    gameState.shield = 0;
+                }
+            }
+            
+            // Kalan hasar cana
+            gameState.health -= damage;
             
             // Parçacık efekti
             createParticles(enemies[i].x + enemies[i].width/2, enemies[i].y + enemies[i].height/2, '#ff0000');
@@ -861,7 +1132,12 @@ function checkCollisions() {
             player.y < bonuses[i].y + bonuses[i].height &&
             player.y + player.height > bonuses[i].y) {
             
-            gameState.score += 10;
+            let bonusPoints = 10;
+            if (upgrades.utility.doubleScore > 0) {
+                const scoreMultiplier = upgradeDetails.doubleScore.effects[upgrades.utility.doubleScore];
+                bonusPoints = Math.floor(bonusPoints * scoreMultiplier);
+            }
+            gameState.score += bonusPoints;
             createParticles(bonuses[i].x + bonuses[i].width/2, bonuses[i].y + bonuses[i].height/2, '#00ff00');
             bonuses.splice(i, 1);
         }
@@ -873,6 +1149,11 @@ function checkCollisions() {
         gameState.nextLevelScore += 100 + (gameState.level * 50);
         gameState.showUpgrade = true;
         gameState.paused = true;
+        
+        // Upgrade menüsü için düşük tempo müzik çal
+        musicState.gamePhase = 'menu';
+        playMusic(Math.random() < 0.5 ? 'menu1' : 'menu2');
+        
         document.getElementById('upgradeMenu').style.display = 'block';
         showCategorySelection(); // Kategori seçimini göster
     }
@@ -1092,12 +1373,12 @@ function drawUI() {
         const skorHeight = 40;
         ctx.drawImage(skorImg, 10, 10, skorWidth, skorHeight);
         
-        // Skor değerini görsel içine yaz
+        // Skor değerini görsel içine yaz (40-50px sağa kaydır)
         ctx.fillStyle = '#00ff00';
         ctx.font = 'bold 19px "Courier New", "Lucida Console", monospace';
         ctx.textAlign = 'center';
         ctx.textShadow = '0 0 8px #00ff00';
-        ctx.fillText(gameState.score.toString(), 10 + skorWidth/2 + 20, 10 + skorHeight/2 + 6);
+        ctx.fillText(gameState.score.toString(), 10 + skorWidth/2 + 50, 10 + skorHeight/2 + 6);
     }
     
     // Sağ üst köşe - Oyun bilgileri
@@ -1107,11 +1388,15 @@ function drawUI() {
     
     ctx.fillText(`Level: ${gameState.level}`, canvas.width - 10, 25);
     ctx.fillText(`Can: ${gameState.health}`, canvas.width - 10, 45);
+    if (gameState.maxShield > 0) {
+        ctx.fillText(`Kalkan: ${gameState.shield}`, canvas.width - 10, 65);
+    }
     
     // Oyun süresi
     const minutes = Math.floor(gameState.gameTime / 60000);
     const seconds = Math.floor((gameState.gameTime % 60000) / 1000);
-    ctx.fillText(`Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width - 10, 65);
+    const timeY = gameState.maxShield > 0 ? 85 : 65;
+    ctx.fillText(`Süre: ${minutes}:${seconds.toString().padStart(2, '0')}`, canvas.width - 10, timeY);
     
     // Sol alt köşe - Kontroller
     ctx.textAlign = 'left';
@@ -1119,7 +1404,8 @@ function drawUI() {
     ctx.fillText('W/A/S/D: Ateş Et', 10, 70);
     ctx.fillText('Mouse: Hareket', 10, 85);
     ctx.fillText('Space: Ateş', 10, 100);
-    ctx.fillText('ESC: Duraklat', 10, 115);
+    ctx.fillText('Shift: Dash', 10, 115);
+    ctx.fillText('ESC: Duraklat', 10, 130);
     
     // Can barı
     const barWidth = 200;
@@ -1145,17 +1431,87 @@ function drawUI() {
     ctx.fillStyle = '#ffffff';
     ctx.font = '12px Courier New';
     ctx.textAlign = 'center';
-    ctx.fillText(`${gameState.health}/${gameState.maxHealth}`, barX + barWidth/2, barY + barHeight/2 + 4);
+    let healthText = `${gameState.health}/${gameState.maxHealth}`;
+    if (gameState.maxShield > 0) {
+        healthText += ` (${gameState.shield})`;
+    }
+    ctx.fillText(healthText, barX + barWidth/2, barY + barHeight/2 + 4);
+    
+    // Kalkan barı (eğer varsa)
+    if (gameState.maxShield > 0) {
+        const shieldBarY = barY - 25;
+        const shieldPercent = gameState.shield / gameState.maxShield;
+        
+        // Kalkan barı arka plan
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(barX, shieldBarY, barWidth, barHeight);
+        
+        // Kalkan barı
+        ctx.fillStyle = '#4444ff';
+        ctx.fillRect(barX, shieldBarY, barWidth * shieldPercent, barHeight);
+        
+        // Kalkan barı çerçeve
+        ctx.strokeStyle = '#4444ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, shieldBarY, barWidth, barHeight);
+        
+        // Kalkan yazısı
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`Kalkan: ${gameState.shield}/${gameState.maxShield}`, barX + barWidth/2, shieldBarY + barHeight/2 + 4);
+    }
 }
 
 // Oyunu duraklat
 function togglePause() {
     gameState.paused = !gameState.paused;
+    
+    // Pause/resume durumunda müzik kontrolü ve menü gösterimi
+    if (gameState.paused) {
+        if (currentMusic) {
+            currentMusic.pause();
+        }
+        // Pause menüsünü göster
+        document.getElementById('pauseMenu').style.display = 'block';
+    } else {
+        if (currentMusic) {
+            currentMusic.play().catch(e => console.log('Müzik devam ettirme hatası:', e));
+        }
+        // Pause menüsünü gizle
+        document.getElementById('pauseMenu').style.display = 'none';
+    }
+}
+
+// Oyunu devam ettir
+function resumeGame() {
+    gameState.paused = false;
+    document.getElementById('pauseMenu').style.display = 'none';
+    
+    // Müziği devam ettir
+    if (currentMusic) {
+        currentMusic.play().catch(e => console.log('Müzik devam ettirme hatası:', e));
+    }
+    
+    // Oyun döngüsünü yeniden başlat
+    gameLoop();
+}
+
+// Pause menüsünden restart
+function restartFromPause() {
+    // Pause menüsünü kapat
+    document.getElementById('pauseMenu').style.display = 'none';
+    
+    // Normal restart fonksiyonunu çağır
+    restartGame();
 }
 
 // Oyunu bitir
 function endGame() {
     gameState.running = false;
+    
+    // Oyun bittiğinde menu müziği çal
+    musicState.gamePhase = 'menu';
+    playMusic(Math.random() < 0.5 ? 'menu1' : 'menu2');
+    
     document.getElementById('finalScore').textContent = gameState.score;
     document.getElementById('gameOver').style.display = 'block';
 }
@@ -1204,6 +1560,8 @@ function restartGame() {
         score: 0,
         health: 100,
         maxHealth: 100,
+        shield: 0,
+        maxShield: 0,
         level: 1,
         nextLevelScore: 100,
         showUpgrade: false,
@@ -1267,11 +1625,17 @@ function restartGame() {
     
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('upgradeMenu').style.display = 'none';
+    document.getElementById('pauseMenu').style.display = 'none';
     
     document.getElementById('multiShotBtn').disabled = false;
     document.getElementById('multiShotBtn').style.opacity = '1';
     document.getElementById('directionalBtn').disabled = false;
     document.getElementById('directionalBtn').style.opacity = '1';
+    
+    // Müzik durumunu sıfırla ve oyun müziği başlat
+    musicState.gamePhase = 'game';
+    musicState.lastMusicChange = 0;
+    playMusic('game1');
     
     gameLoop();
 }
@@ -1421,6 +1785,10 @@ function selectCategoryUpgrade(category, upgradeKey) {
     gameState.paused = false;
     document.getElementById('upgradeMenu').style.display = 'none';
     
+    // Oyuna geri döndüğünde oyun müziği çal
+    musicState.gamePhase = 'game';
+    playMusic(Math.random() < 0.5 ? 'game1' : 'game2');
+    
     // Kategori seçimini tekrar göster (bir sonraki level için)
     showCategorySelection();
     
@@ -1446,6 +1814,16 @@ function applyUpgradeEffects() {
         gameState.health = Math.min(gameState.health, newMaxHealth); // Can taşmasını önle
     } else {
         gameState.maxHealth = 100;
+    }
+    
+    // Kalkan
+    if (upgrades.defense.shield > 0) {
+        const newMaxShield = upgradeDetails.shield.effects[upgrades.defense.shield];
+        gameState.maxShield = newMaxShield;
+        gameState.shield = newMaxShield; // Yeni kalkan seviyesini hemen uygula
+    } else {
+        gameState.maxShield = 0;
+        gameState.shield = 0;
     }
 }
 
